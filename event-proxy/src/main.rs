@@ -1,4 +1,5 @@
 mod frame;
+mod events;
 
 use substrate_subxt::ClientBuilder;
 use substrate_subxt::NodeTemplateRuntime;
@@ -16,6 +17,8 @@ use substrate_subxt::system::System;
 
 use codec::Decode;
 use node_template_runtime::ProposalExpirePeriod;
+
+use events::*;
 
 const URL: &str = "ws://localhost:9944/";
 
@@ -58,69 +61,16 @@ async fn main() {
     loop {
         while let Some(Ok(e)) = sub.next().await {
             log::debug!("{:?} ; {:?} ; {:?}", e.variant, e.module, e.data);
-            match known_events(&e) {
+            match known_events::<RuntimeT>(&e) {
                 Some(ProposalProposed(e)) => {},
                 Some(ProposalApproved(e)) => {},
                 Some(ProposalRevokedApproval(e)) => {},
                 Some(ProposalResolved(e)) => {},
                 Some(ProposalExpired(e)) => {},
-                None => {}
+                None | _ => {}
             }
         }
     }
-}
-
-use KnownEvents::*;
-
-#[derive(Debug)]
-enum KnownEvents {
-    ProposalProposed(deip_proposal::ProposedEvent<RuntimeT>),
-    ProposalApproved(deip_proposal::ApprovedEvent<RuntimeT>),
-    ProposalRevokedApproval(deip_proposal::RevokedApprovalEvent<RuntimeT>),
-    ProposalResolved(deip_proposal::ResolvedEvent<RuntimeT>),
-    ProposalExpired(deip_proposal::ExpiredEvent<RuntimeT>),
-}
-
-fn known_events(e: &RawEvent) -> Option<KnownEvents> {
-    let event = match (e.module.as_str(), e.variant.as_str()) {
-        (
-            deip_proposal::ProposedEvent::<RuntimeT>::MODULE,
-            deip_proposal::ProposedEvent::<RuntimeT>::EVENT
-        ) => { 
-            deip_proposal::ProposedEvent::<RuntimeT>::decode(&mut &e.data[..]).map(KnownEvents::ProposalProposed)
-        },
-        (
-            deip_proposal::ApprovedEvent::<RuntimeT>::MODULE,
-            deip_proposal::ApprovedEvent::<RuntimeT>::EVENT
-        ) => {
-            deip_proposal::ApprovedEvent::<RuntimeT>::decode(&mut &e.data[..]).map(KnownEvents::ProposalApproved)
-        },
-        (
-            deip_proposal::RevokedApprovalEvent::<RuntimeT>::MODULE,
-            deip_proposal::RevokedApprovalEvent::<RuntimeT>::EVENT
-        ) => {
-            deip_proposal::RevokedApprovalEvent::<RuntimeT>::decode(&mut &e.data[..]).map(KnownEvents::ProposalRevokedApproval)
-        },
-        (
-            deip_proposal::ResolvedEvent::<RuntimeT>::MODULE,
-            deip_proposal::ResolvedEvent::<RuntimeT>::EVENT
-        ) => {
-            deip_proposal::ResolvedEvent::<RuntimeT>::decode(&mut &e.data[..]).map(KnownEvents::ProposalResolved)
-        },
-        (
-            deip_proposal::ExpiredEvent::<RuntimeT>::MODULE,
-            deip_proposal::ExpiredEvent::<RuntimeT>::EVENT
-        ) => {
-            deip_proposal::ExpiredEvent::<RuntimeT>::decode(&mut &e.data[..]).map(KnownEvents::ProposalExpired)
-        },
-        _ => return None,
-    };
-    if let Err(err) = event {
-        log::error!("{}", err);
-        return None
-    }
-    log::debug!("{:?}", event.as_ref().unwrap());
-    event.ok()
 }
 
 impl frame::deip_proposal::DeipProposal for RuntimeT {
