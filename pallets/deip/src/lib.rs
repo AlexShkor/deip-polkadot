@@ -64,7 +64,7 @@ mod mock;
 mod tests;
 
 mod project_token_sale;
-use project_token_sale::{Id as InvestmentId,
+pub use project_token_sale::{Id as InvestmentId,
     Status as ProjectTokenSaleStatus,
     Info as ProjectTokenSale};
 

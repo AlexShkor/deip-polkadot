@@ -1,0 +1,41 @@
+[package]
+authors = ['DEIP world <https://github.com/DEIPworld>']
+description = 'Event proxy Node->Kafka'
+edition = '2018'
+homepage = 'https://deip.world/'
+license = 'Apache-2.0'
+name = 'event-proxy'
+repository = 'https://github.com/DEIPworld/deip-polkadot'
+version = '3.0.0'
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+#substrate-subxt = { git = "https://github.com/paritytech/substrate-subxt.git", rev = "08a3e6574d38ed7908e163ac554b81b59e0b8a67" }
+substrate-subxt = { path = "../../substrate-subxt" }
+jsonrpsee-ws-client = { version = "0.2.0", default-features = false , features = ["tokio1"] }
+rdkafka = { version = "=0.26.0", default_features = true, features = ["cmake-build"] }
+tokio = { version = "1", features = ["full"] }
+
+sp-core = "3.0.0"
+sp-std = "3.0.0"
+sp-runtime = "3.0.0"
+
+pallet-deip-proposal = { path = "../pallets/deip_proposal" }
+pallet-deip-org = { path = "../pallets/deip_org" }
+pallet-deip = { path = "../pallets/deip"}
+node-template-runtime = { path = '../runtime'}
+
+codec = { package = "parity-scale-codec", version = "2.1", default-features = false, features = ["derive", "full"] }
+hex = "0.4.3"
+
+log = "0.4.14"
+flexi_logger = "0.18.0"
+
+frame-support = "3.0.0"
+
+
+[workspace]
+
+[features]
+default = []
