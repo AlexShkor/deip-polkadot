@@ -7,6 +7,9 @@ use substrate_subxt::{EventSubscription, EventsDecoder, Runtime, Error, Event, R
 use sp_core::hashing::twox_128;
 
 use frame::deip_proposal::{self, DeipProposal};
+use frame::deip::Deip;
+use frame::deip_org::DeipOrg;
+
 use frame_support::Parameter;
 use frame_support::pallet_prelude::Member;
 use substrate_subxt::system::System;
@@ -42,6 +45,8 @@ async fn main() {
         .register_type_size::<<RuntimeT as Deip>::ProjectContentId>("ProjectContentId")
         .register_type_size::<<RuntimeT as Deip>::ProjectTokenSaleId>("ProjectTokenSaleId")
         .register_type_size::<<RuntimeT as Deip>::ProjectTokenSale>("ProjectTokenSale")
+        // DeipOrg:
+        .register_type_size::<<RuntimeT as DeipOrg>::Org>("OrgOf<T>")
         .build()
         .await.unwrap();
     let sub = client.subscribe_finalized_events().await.unwrap();
@@ -66,7 +71,6 @@ async fn main() {
 }
 
 use KnownEvents::*;
-use crate::frame::deip::Deip;
 
 #[derive(Debug)]
 enum KnownEvents {
@@ -120,11 +124,10 @@ fn known_events(e: &RawEvent) -> Option<KnownEvents> {
 }
 
 impl frame::deip_proposal::DeipProposal for RuntimeT {
-    // type ProposalBatch = frame::deip_proposal::ProposalBatch<Self>;
     type ProposalBatch = pallet_deip_proposal::proposal::ProposalBatch<node_template_runtime::Runtime>;
     type ProposalId = pallet_deip_proposal::proposal::ProposalId;
     type Call = node_template_runtime::Call;
-    type BatchItem = frame::deip_proposal::ProposalBatchItemOf<Self>;
+    type BatchItem = pallet_deip_proposal::proposal::ProposalBatchItemOf<node_template_runtime::Runtime>;
     type ProposalState = pallet_deip_proposal::proposal::ProposalState;
 }
 
@@ -138,4 +141,8 @@ impl frame::deip::Deip for RuntimeT {
     type ProjectContentId = pallet_deip::ProjectContentId;
     type ProjectTokenSaleId = pallet_deip::InvestmentId;
     type ProjectTokenSale = pallet_deip::ProjectTokenSaleOf<node_template_runtime::Runtime>;
+}
+
+impl frame::deip_org::DeipOrg for RuntimeT {
+    type Org = pallet_deip_org::org::OrgOf<node_template_runtime::Runtime>;
 }
