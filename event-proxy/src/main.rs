@@ -1,5 +1,6 @@
 mod frame;
 mod events;
+mod types;
 
 use substrate_subxt::ClientBuilder;
 use substrate_subxt::NodeTemplateRuntime;
@@ -19,6 +20,7 @@ use codec::Decode;
 use node_template_runtime::ProposalExpirePeriod;
 
 use events::*;
+use types::register_types;
 
 const URL: &str = "ws://localhost:9944/";
 
@@ -29,27 +31,9 @@ async fn main() {
     
     flexi_logger::Logger::try_with_env().unwrap().start().unwrap();
     
-    let client = ClientBuilder::<RuntimeT>::new()
+    let client = register_types(ClientBuilder::<RuntimeT>::new())
         .set_url(URL)
         // .skip_type_sizes_check()
-        // System:
-        .register_type_size::<<RuntimeT as System>::AccountId>("T::AccountId")
-        // DeipProposal:
-        .register_type_size::<<RuntimeT as DeipProposal>::ProposalBatch>("ProposalBatch<T>")
-        .register_type_size::<<RuntimeT as DeipProposal>::ProposalId>("ProposalId")
-        .register_type_size::<<RuntimeT as DeipProposal>::ProposalState>("ProposalState")
-        // Deip:
-        .register_type_size::<<RuntimeT as Deip>::DomainId>("DomainId")
-        .register_type_size::<<RuntimeT as Deip>::ProjectId>("ProjectId")
-        .register_type_size::<<RuntimeT as Deip>::Project>("Project")
-        .register_type_size::<<RuntimeT as Deip>::Review>("Review")
-        .register_type_size::<<RuntimeT as Deip>::NdaId>("NdaId")
-        .register_type_size::<<RuntimeT as Deip>::NdaAccessRequestId>("NdaAccessRequestId")
-        .register_type_size::<<RuntimeT as Deip>::ProjectContentId>("ProjectContentId")
-        .register_type_size::<<RuntimeT as Deip>::ProjectTokenSaleId>("ProjectTokenSaleId")
-        .register_type_size::<<RuntimeT as Deip>::ProjectTokenSale>("ProjectTokenSale")
-        // DeipOrg:
-        .register_type_size::<<RuntimeT as DeipOrg>::Org>("OrgOf<T>")
         .build()
         .await.unwrap();
     let sub = client.subscribe_finalized_events().await.unwrap();

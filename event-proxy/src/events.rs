@@ -3,7 +3,6 @@ use std::fmt::Debug;
 use substrate_subxt::{RawEvent, Event};
 use codec::Decode;
 
-use super::RuntimeT;
 use super::frame::{
     deip_proposal::{self, DeipProposal},
     deip::{self, Deip},
