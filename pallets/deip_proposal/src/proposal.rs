@@ -8,6 +8,9 @@ use crate::storage::{StorageOpsT, StorageOps};
 
 use super::{Config, Event, Error, ProposalRepository};
 
+#[cfg(feature = "std")]
+use serde::{Serialize, Deserialize};
+
 
 pub type ProposalId = sp_core::H160;
 
@@ -34,6 +37,7 @@ pub type InputProposalBatchItem<T: Config> = BatchItem<
 
 /// Batch item generic container
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct BatchItem<Account, CallT> {
     pub account: Account,
     pub call: CallT,
@@ -57,6 +61,7 @@ pub struct DeipProposal<T: Config> {
 
 /// Proposal state
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Encode, Decode)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum ProposalState {
     /// Pending proposal
     Pending,

@@ -29,7 +29,7 @@ type RuntimeT = NodeTemplateRuntime;
 #[tokio::main]
 async fn main() {
     
-    flexi_logger::Logger::try_with_env().unwrap().start().unwrap();
+    // flexi_logger::Logger::try_with_env().unwrap().start().unwrap();
     
     let client = register_types(ClientBuilder::<RuntimeT>::new())
         .set_url(URL)
@@ -45,14 +45,16 @@ async fn main() {
     loop {
         while let Some(Ok(e)) = sub.next().await {
             log::debug!("{:?} ; {:?} ; {:?}", e.variant, e.module, e.data);
-            match known_events::<RuntimeT>(&e) {
-                Some(ProposalProposed(e)) => {},
-                Some(ProposalApproved(e)) => {},
-                Some(ProposalRevokedApproval(e)) => {},
-                Some(ProposalResolved(e)) => {},
-                Some(ProposalExpired(e)) => {},
-                None | _ => {}
-            }
+            let k = known_events::<RuntimeT>(&e);
+            println!("{}", serde_json::to_string_pretty(&k).unwrap());
+            // match known_events::<RuntimeT>(&e) {
+            //     Some(ProposalProposed(e)) => {},
+            //     Some(ProposalApproved(e)) => {},
+            //     Some(ProposalRevokedApproval(e)) => {},
+            //     Some(ProposalResolved(e)) => {},
+            //     Some(ProposalExpired(e)) => {},
+            //     None | _ => {}
+            // }
         }
     }
 }
@@ -61,7 +63,7 @@ impl frame::deip_proposal::DeipProposal for RuntimeT {
     type ProposalBatch = pallet_deip_proposal::proposal::ProposalBatch<node_template_runtime::Runtime>;
     type ProposalId = pallet_deip_proposal::proposal::ProposalId;
     type Call = node_template_runtime::Call;
-    type BatchItem = pallet_deip_proposal::proposal::ProposalBatchItemOf<node_template_runtime::Runtime>;
+    // type BatchItem = pallet_deip_proposal::proposal::ProposalBatchItemOf<node_template_runtime::Runtime>;
     type ProposalState = pallet_deip_proposal::proposal::ProposalState;
 }
 

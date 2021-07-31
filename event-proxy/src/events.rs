@@ -2,12 +2,39 @@ use std::fmt::Debug;
 
 use substrate_subxt::{RawEvent, Event};
 use codec::Decode;
+use serde::{Serialize, ser::{Serializer, SerializeTupleVariant}};
 
 use super::frame::{
     deip_proposal::{self, DeipProposal},
     deip::{self, Deip},
     deip_org::{self, DeipOrg}
 };
+
+impl<T: DeipProposal + Deip + DeipOrg> Serialize for KnownEvents<T> {
+    fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error> where
+        S: Serializer
+    {
+        match self {
+            ProposalProposed(e) => e.serialize(serializer),
+            ProposalApproved(e) => e.serialize(serializer),
+            ProposalRevokedApproval(e) => e.serialize(serializer),
+            ProposalResolved(e) => e.serialize(serializer),
+            ProposalExpired(e) => e.serialize(serializer),
+            ProjectCreated(e) => e.serialize(serializer),
+            ProjectRemoved(e) => e.serialize(serializer),
+            ProjectUpdated(e) => e.serialize(serializer),
+            ProjectContentCreated(e) => e.serialize(serializer),
+            NdaCreated(e) => e.serialize(serializer),
+            NdaAccessRequestCreated(e) => e.serialize(serializer),
+            NdaAccessRequestFulfilled(e) => e.serialize(serializer),
+            NdaAccessRequestRejected(e) => e.serialize(serializer),
+            DomainAdded(e) => e.serialize(serializer),
+            ReviewCreated(e) => e.serialize(serializer),
+            OrgCreate(e) => e.serialize(serializer),
+            OrgTransferOwnership(e) => e.serialize(serializer),
+        }
+    }
+}
 
 pub use KnownEvents::*;
 

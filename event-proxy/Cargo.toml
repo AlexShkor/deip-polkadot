@@ -16,6 +16,8 @@ substrate-subxt = { path = "../../substrate-subxt" }
 jsonrpsee-ws-client = { version = "0.2.0", default-features = false , features = ["tokio1"] }
 rdkafka = { version = "=0.26.0", default_features = true, features = ["cmake-build"] }
 tokio = { version = "1", features = ["full"] }
+serde = { version = "1.0.124", features = ["derive"] }
+serde_json = "1.0.64"
 
 sp-core = "3.0.0"
 sp-std = "3.0.0"
