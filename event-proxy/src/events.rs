@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use substrate_subxt::{RawEvent, Event};
 use codec::Decode;
-use serde::{Serialize, ser::{Serializer, SerializeTupleVariant}};
+use serde::{Serialize, ser::{Serializer, SerializeStruct}};
 
 use super::frame::{
     deip_proposal::{self, DeipProposal},
@@ -10,28 +10,82 @@ use super::frame::{
     deip_org::{self, DeipOrg}
 };
 
+struct TypedEvent<'a, T> {
+    r#type: &'a str,
+    data: &'a T
+}
+impl<'a, T> TypedEvent<'a, T> {
+    fn new(r#type: &'a str, data: &'a T) -> Self {
+        TypedEvent { r#type, data }
+    }
+}
+impl<T: Serialize> Serialize for TypedEvent<'_, T> {
+    fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
+        where S: Serializer
+    {
+        let mut s = serializer.serialize_struct("TypedEvent", 2)?;
+        s.serialize_field("type", self.r#type)?;
+        s.serialize_field("data", self.data)?;
+        s.end()
+    }
+}
+
 impl<T: DeipProposal + Deip + DeipOrg> Serialize for KnownEvents<T> {
-    fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error> where
-        S: Serializer
+    fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
+        where S: Serializer
     {
         match self {
-            ProposalProposed(e) => e.serialize(serializer),
-            ProposalApproved(e) => e.serialize(serializer),
-            ProposalRevokedApproval(e) => e.serialize(serializer),
-            ProposalResolved(e) => e.serialize(serializer),
-            ProposalExpired(e) => e.serialize(serializer),
-            ProjectCreated(e) => e.serialize(serializer),
-            ProjectRemoved(e) => e.serialize(serializer),
-            ProjectUpdated(e) => e.serialize(serializer),
-            ProjectContentCreated(e) => e.serialize(serializer),
-            NdaCreated(e) => e.serialize(serializer),
-            NdaAccessRequestCreated(e) => e.serialize(serializer),
-            NdaAccessRequestFulfilled(e) => e.serialize(serializer),
-            NdaAccessRequestRejected(e) => e.serialize(serializer),
-            DomainAdded(e) => e.serialize(serializer),
-            ReviewCreated(e) => e.serialize(serializer),
-            OrgCreate(e) => e.serialize(serializer),
-            OrgTransferOwnership(e) => e.serialize(serializer),
+            ProposalProposed(e) => {
+                TypedEvent::new("proposal_proposed", e).serialize(serializer)
+            },
+            ProposalApproved(e) => {
+                TypedEvent::new("proposal_approved", e).serialize(serializer)
+            },
+            ProposalRevokedApproval(e) => {
+                TypedEvent::new("proposal_revokedApproval", e).serialize(serializer)
+            },
+            ProposalResolved(e) => {
+                TypedEvent::new("proposal_resolved", e).serialize(serializer)
+            },
+            ProposalExpired(e) => {
+                TypedEvent::new("proposal_expired", e).serialize(serializer)
+            },
+            ProjectCreated(e) => {
+                TypedEvent::new("project_created", e).serialize(serializer)
+            },
+            ProjectRemoved(e) => {
+                TypedEvent::new("project_removed", e).serialize(serializer)
+            },
+            ProjectUpdated(e) => {
+                TypedEvent::new("project_updated", e).serialize(serializer)
+            },
+            ProjectContentCreated(e) => {
+                TypedEvent::new("project_contentCreated", e).serialize(serializer)
+            },
+            NdaCreated(e) => {
+                TypedEvent::new("project_ndaCreated", e).serialize(serializer)
+            },
+            NdaAccessRequestCreated(e) => {
+                TypedEvent::new("project_ndaAccessRequestCreated", e).serialize(serializer)
+            },
+            NdaAccessRequestFulfilled(e) => {
+                TypedEvent::new("project_ndaAccessRequestFulfilled", e).serialize(serializer)
+            },
+            NdaAccessRequestRejected(e) => {
+                TypedEvent::new("project_ndaAccessRequestRejected", e).serialize(serializer)
+            },
+            DomainAdded(e) => {
+                TypedEvent::new("project_domainAdded", e).serialize(serializer)
+            },
+            ReviewCreated(e) => {
+                TypedEvent::new("project_reviewCreated", e).serialize(serializer)
+            },
+            OrgCreate(e) => {
+                TypedEvent::new("dao_create", e).serialize(serializer)
+            },
+            OrgTransferOwnership(e) => {
+                TypedEvent::new("dao_transferOwnership", e).serialize(serializer)
+            },
         }
     }
 }
