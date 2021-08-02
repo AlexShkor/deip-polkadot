@@ -6,8 +6,12 @@ use sp_core::crypto::AccountId32;
 
 use pallet_deip_org::org::OrgName;
 
+#[cfg(feature = "std")]
+use serde::{Serialize, Deserialize};
+
 
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, Ord, PartialOrd)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum DeipAccountId<Native> {
     Native(Native),
     Org(OrgName),

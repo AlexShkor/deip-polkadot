@@ -11,11 +11,15 @@ use serde::{Serialize, ser::{Serializer, SerializeStruct}};
 
 #[module]
 pub trait DeipProposal: System {
-    type ProposalBatch: Parameter + Member + Serialize;
+    type ProposalBatch: Parameter + Member;
     type ProposalId: Parameter + Member + Serialize;
-    type Call: Parameter + Member + Serialize;
-    // type BatchItem: Parameter + Member + Serialize;
+    type Call: Parameter + Member;
+    type BatchItem: Parameter + Member;
     type ProposalState: Parameter + Member + Serialize;
+    /// Wrapper type to perform data transformations before serialization
+    type WrappedBatch: Parameter + Member + Serialize;
+    
+    fn wrap_batch(batch: &Self::ProposalBatch) -> Self::WrappedBatch;
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Event, Decode)]
@@ -30,7 +34,7 @@ impl<T: DeipProposal> Serialize for ProposedEvent<T> {
     {
         let mut s = serializer.serialize_struct("ProposedEvent", 3)?;
         s.serialize_field("author", &self.author)?;
-        s.serialize_field("batch", &self.batch)?;
+        s.serialize_field("batch", &T::wrap_batch(&self.batch))?;
         s.serialize_field("proposal_id", &self.proposal_id)?;
         s.end()
     }

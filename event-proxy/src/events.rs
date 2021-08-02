@@ -123,7 +123,9 @@ pub fn known_events<T>(e: &RawEvent) -> Option<KnownEvents<T>> where T: DeipProp
             deip_proposal::ProposedEvent::<T>::MODULE,
             deip_proposal::ProposedEvent::<T>::EVENT
         ) => { 
-            decode_event_data(e).map(ProposalProposed)
+            decode_event_data(e).map(|x| {
+                println!("HERE: {:?}", &x);
+                ProposalProposed(x) })
         },
         (
             deip_proposal::ApprovedEvent::<T>::MODULE,
@@ -185,6 +187,12 @@ pub fn known_events<T>(e: &RawEvent) -> Option<KnownEvents<T>> where T: DeipProp
             deip::NdaAccessRequestCreatedEvent::<T>::EVENT
         ) => {                          
             decode_event_data(e).map(NdaAccessRequestCreated)
+        },
+        (                               
+            deip::NdaAccessRequestFulfilledEvent::<T>::MODULE,
+            deip::NdaAccessRequestFulfilledEvent::<T>::EVENT
+        ) => {                          
+            decode_event_data(e).map(NdaAccessRequestFulfilled)
         },
         (                               
             deip::NdaAccessRequestRejectedEvent::<T>::MODULE,
