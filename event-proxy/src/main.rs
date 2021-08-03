@@ -35,7 +35,7 @@ async fn main() {
     
     let client = register_types(ClientBuilder::<RuntimeT>::new())
         .set_url(URL)
-        .skip_type_sizes_check()
+        // .skip_type_sizes_check()
         .build()
         .await.unwrap();
     let sub = client.subscribe_finalized_events().await.unwrap();
