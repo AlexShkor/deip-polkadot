@@ -86,6 +86,7 @@ struct Timepoint<BlockNumber> {
 
 /// Proposal member decision
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Encode, Decode)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum ProposalMemberDecision {
     /// Pending state
     Pending,

@@ -24,6 +24,8 @@ use types::register_types;
 
 use serde::{Serialize, ser::{Serializer, SerializeMap}};
 
+use std::borrow::Borrow;
+
 const URL: &str = "ws://localhost:9944/";
 
 type RuntimeT = NodeTemplateRuntime;
@@ -62,12 +64,15 @@ async fn main() {
 }
 
 impl frame::deip_proposal::DeipProposal for RuntimeT {
-    type ProposalBatch = pallet_deip_proposal::proposal::ProposalBatch<node_template_runtime::Runtime>;
+    // type ProposalBatch = pallet_deip_proposal::proposal::ProposalBatch<node_template_runtime::Runtime>;
+    type ProposalBatch = pallet_deip_proposal::proposal::InputProposalBatch<node_template_runtime::Runtime>;
     type ProposalId = pallet_deip_proposal::proposal::ProposalId;
     type Call = node_template_runtime::Call;
     type BatchItem = pallet_deip_proposal::proposal::ProposalBatchItemOf<node_template_runtime::Runtime>;
     type ProposalState = pallet_deip_proposal::proposal::ProposalState;
-    type WrappedBatch = Vec<pallet_deip_proposal::proposal::BatchItem<node_template_runtime::AccountId, WrappedCall>>;
+    type WrappedBatch = Vec<pallet_deip_proposal::proposal::BatchItem<
+        node_template_runtime::deip_account::DeipAccountId<
+            node_template_runtime::AccountId>, WrappedCall>>;
 
     fn wrap_batch(batch: &Self::ProposalBatch) -> Self::WrappedBatch {
         batch.iter().map(|x| {
@@ -89,6 +94,7 @@ impl Serialize for WrappedCall {
         where S: Serializer
     {
         match &self.0 {
+            // =============== Deip:
             RuntimeCall::Deip(pallet_deip::Call::create_project(
                                   is_private,
                                   external_id,
@@ -249,9 +255,113 @@ impl Serialize for WrappedCall {
                     },
                 }.serialize(serializer)
             },
+            RuntimeCall::DeipProposal(pallet_deip_proposal::Call::propose(
+                                          batch,
+                                          external_id)) => {
+                CallObject {
+                    module: "deip_proposal",
+                    call: "propose",
+                    args: &DeipProposalProposeCallArgs {
+                        batch: RuntimeT::wrap_batch(batch),
+                        external_id
+                    },
+                }.serialize(serializer)
+            },
+            // =============== DeipProposal:
+            RuntimeCall::DeipProposal(pallet_deip_proposal::Call::decide(
+                                          proposal_id,
+                                          decision)) => {
+                CallObject {
+                    module: "deip_proposal",
+                    call: "decide",
+                    args: &DeipProposalDecideCallArgs {
+                        proposal_id,
+                        decision
+                    },
+                }.serialize(serializer)
+            },
+            RuntimeCall::DeipProposal(pallet_deip_proposal::Call::decide(
+                                          proposal_id,
+                                          decision)) => {
+                CallObject {
+                    module: "deip_proposal",
+                    call: "decide",
+                    args: &DeipProposalDecideCallArgs {
+                        proposal_id,
+                        decision
+                    },
+                }.serialize(serializer)
+            },
+            // =============== DeipOrg:
+            RuntimeCall::DeipOrg(pallet_deip_org::Call::create(
+                                     name,
+                                     key_source)) => {
+                CallObject {
+                    module: "deip_org",
+                    call: "create",
+                    args: &DeipOrgCreateCallArgs {
+                        name,
+                        key_source,
+                    },
+                }.serialize(serializer)
+            },
+            RuntimeCall::DeipOrg(pallet_deip_org::Call::transfer_ownership(
+                                     transfer_to,
+                                     key_source)) => {
+                CallObject {
+                    module: "deip_org",
+                    call: "transfer_ownership",
+                    args: &DeipOrgTransferOwnershipCallArgs {
+                        transfer_to,
+                        key_source,
+                    },
+                }.serialize(serializer)
+            },
+            RuntimeCall::DeipOrg(pallet_deip_org::Call::on_behalf(
+                                     name,
+                                     call)) => {
+                CallObject {
+                    module: "deip_org",
+                    call: "on_behalf",
+                    args: &DeipOrgOnBehalfCallArgs {
+                        name,
+                        call: WrappedCall(Borrow::<RuntimeCall>::borrow(call).clone()),
+                    },
+                }.serialize(serializer)
+            },
             _ =>  serializer.serialize_u8(0)
         }
     }
+}
+
+#[derive(Serialize)]
+struct DeipOrgOnBehalfCallArgs<A, B> {
+    name: A,
+    call: B,
+}
+
+#[derive(Serialize)]
+struct DeipOrgTransferOwnershipCallArgs<A, B> {
+    transfer_to: A,
+    key_source: B,
+}
+
+#[derive(Serialize)]
+struct DeipOrgCreateCallArgs<A, B> {
+    name: A,
+    key_source: B,
+}
+
+#[derive(Serialize)]
+struct DeipProposalDecideCallArgs<A, B> {
+    proposal_id: A,
+    decision: B,
+}
+
+#[derive(Serialize)]
+struct DeipProposalProposeCallArgs<A, B> {
+    batch: A,
+    external_id: B,
 }
 
 #[derive(Serialize)]

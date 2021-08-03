@@ -186,6 +186,7 @@ pub mod pallet {
             threshold: u16 
         }
         #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode)]
+        #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
         pub struct InputKeySource<AccountId> {
             pub signatories: Vec<AccountId>,
             pub threshold: u16 
