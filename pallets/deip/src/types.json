@@ -60,7 +60,9 @@
       "Reject"
     ]
   },
-  "Domain": "H160",
+  "Domain": {
+    "external_id": "DomainId"
+  },
   "ProjectId": "H160",
   "ProjectContentId": "H160",
   "NdaAccessRequestId": "H160",
