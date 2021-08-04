@@ -21,10 +21,14 @@ pub trait DeipProposal: System {
     type WrappedBatch: Parameter + Member + Serialize;
     /// Wrapper type to perform data transformations before serialization
     type WrappedInputBatch: Parameter + Member + Serialize;
+    /// Wrapper type to perform data transformations before serialization
+    type WrappedCall: Parameter + Member + Serialize;
     
-    fn wrap_batch(batch: &Self::ProposalBatch) -> Self::WrappedBatch;
+    fn wrap_batch<T: From<Self::WrappedBatch>>(batch: &Self::ProposalBatch) -> T;
     
     fn wrap_input_batch(batch: &Self::InputProposalBatch) -> Self::WrappedInputBatch;
+    
+    fn wrap_call(call: &Self::Call) -> Self::WrappedCall;
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Event, Decode)]
@@ -39,7 +43,7 @@ impl<T: DeipProposal> Serialize for ProposedEvent<T> {
     {
         let mut s = serializer.serialize_struct("ProposedEvent", 3)?;
         s.serialize_field("author", &self.author)?;
-        s.serialize_field("batch", &T::wrap_batch(&self.batch))?;
+        s.serialize_field("batch", &T::wrap_batch::<T::WrappedBatch>(&self.batch))?;
         s.serialize_field("proposal_id", &self.proposal_id)?;
         s.end()
     }
