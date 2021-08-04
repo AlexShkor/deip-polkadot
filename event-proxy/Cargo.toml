@@ -11,8 +11,7 @@ version = '3.0.0'
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-#substrate-subxt = { git = "https://github.com/paritytech/substrate-subxt.git", rev = "08a3e6574d38ed7908e163ac554b81b59e0b8a67" }
-substrate-subxt = { path = "../../substrate-subxt" }
+substrate-subxt = { git = "https://github.com/paritytech/substrate-subxt.git", rev = "08a3e6574d38ed7908e163ac554b81b59e0b8a67" }
 jsonrpsee-ws-client = { version = "0.2.0", default-features = false , features = ["tokio1"] }
 rdkafka = { version = "=0.26.0", default_features = true, features = ["cmake-build"] }
 tokio = { version = "1", features = ["full"] }
