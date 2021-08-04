@@ -459,6 +459,7 @@ impl frame::deip::Deip for RuntimeT {
     type NdaAccessRequestId = pallet_deip::NdaAccessRequestId;
     type ProjectContentId = pallet_deip::ProjectContentId;
     type ProjectTokenSaleId = pallet_deip::InvestmentId;
+    type InvestmentId = Self::ProjectTokenSaleId;
     type ProjectTokenSale = pallet_deip::ProjectTokenSaleOf<node_template_runtime::Runtime>;
 }
 
