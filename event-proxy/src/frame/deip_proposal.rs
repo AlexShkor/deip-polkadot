@@ -12,14 +12,19 @@ use serde::{Serialize, ser::{Serializer, SerializeStruct}};
 #[module]
 pub trait DeipProposal: System {
     type ProposalBatch: Parameter + Member;
+    type InputProposalBatch: Parameter + Member;
     type ProposalId: Parameter + Member + Serialize;
     type Call: Parameter + Member;
     type BatchItem: Parameter + Member;
     type ProposalState: Parameter + Member + Serialize;
     /// Wrapper type to perform data transformations before serialization
     type WrappedBatch: Parameter + Member + Serialize;
+    /// Wrapper type to perform data transformations before serialization
+    type WrappedInputBatch: Parameter + Member + Serialize;
     
     fn wrap_batch(batch: &Self::ProposalBatch) -> Self::WrappedBatch;
+    
+    fn wrap_input_batch(batch: &Self::InputProposalBatch) -> Self::WrappedInputBatch;
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Event, Decode)]

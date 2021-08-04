@@ -64,17 +64,28 @@ async fn main() {
 }
 
 impl frame::deip_proposal::DeipProposal for RuntimeT {
-    // type ProposalBatch = pallet_deip_proposal::proposal::ProposalBatch<node_template_runtime::Runtime>;
-    type ProposalBatch = pallet_deip_proposal::proposal::InputProposalBatch<node_template_runtime::Runtime>;
+    type ProposalBatch = pallet_deip_proposal::proposal::ProposalBatch<node_template_runtime::Runtime>;
+    type InputProposalBatch = pallet_deip_proposal::proposal::InputProposalBatch<node_template_runtime::Runtime>;
     type ProposalId = pallet_deip_proposal::proposal::ProposalId;
     type Call = node_template_runtime::Call;
     type BatchItem = pallet_deip_proposal::proposal::ProposalBatchItemOf<node_template_runtime::Runtime>;
     type ProposalState = pallet_deip_proposal::proposal::ProposalState;
     type WrappedBatch = Vec<pallet_deip_proposal::proposal::BatchItem<
+        node_template_runtime::AccountId, WrappedCall>>;
+    type WrappedInputBatch = Vec<pallet_deip_proposal::proposal::BatchItem<
         node_template_runtime::deip_account::DeipAccountId<
             node_template_runtime::AccountId>, WrappedCall>>;
 
     fn wrap_batch(batch: &Self::ProposalBatch) -> Self::WrappedBatch {
+        batch.iter().map(|x| {
+            pallet_deip_proposal::proposal::BatchItem {
+                account: x.account.clone(),
+                call: WrappedCall(x.call.clone())
+            }
+        }).collect()
+    }
+
+    fn wrap_input_batch(batch: &Self::InputProposalBatch) -> Self::WrappedInputBatch {
         batch.iter().map(|x| {
             pallet_deip_proposal::proposal::BatchItem {
                 account: x.account.clone(),
@@ -255,6 +266,7 @@ impl Serialize for WrappedCall {
                     },
                 }.serialize(serializer)
             },
+            // =============== DeipProposal:
             RuntimeCall::DeipProposal(pallet_deip_proposal::Call::propose(
                                           batch,
                                           external_id)) => {
@@ -262,21 +274,8 @@ impl Serialize for WrappedCall {
                     module: "deip_proposal",
                     call: "propose",
                     args: &DeipProposalProposeCallArgs {
-                        batch: RuntimeT::wrap_batch(batch),
+                        batch: RuntimeT::wrap_input_batch(batch),
                         external_id
-                    },
-                }.serialize(serializer)
-            },
-            // =============== DeipProposal:
-            RuntimeCall::DeipProposal(pallet_deip_proposal::Call::decide(
-                                          proposal_id,
-                                          decision)) => {
-                CallObject {
-                    module: "deip_proposal",
-                    call: "decide",
-                    args: &DeipProposalDecideCallArgs {
-                        proposal_id,
-                        decision
                     },
                 }.serialize(serializer)
             },
