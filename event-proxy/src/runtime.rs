@@ -1,6 +1,5 @@
 use codec::{Encode, Decode};
 use super::{frame, RuntimeT};
-use crate::frame::DeipProposal;
 
 #[derive(Clone, Debug, Eq, PartialEq, Decode, Encode)]
 pub struct WrappedCall<T>(pub T);

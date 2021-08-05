@@ -35,6 +35,7 @@ impl<T: DeipProposal + Deip + DeipOrg> Serialize for KnownEvents<T> {
         where S: Serializer
     {
         match self {
+            // =============== DeipProposal:
             ProposalProposed(e) => {
                 TypedEvent::new("proposal_proposed", e).serialize(serializer)
             },
@@ -50,6 +51,7 @@ impl<T: DeipProposal + Deip + DeipOrg> Serialize for KnownEvents<T> {
             ProposalExpired(e) => {
                 TypedEvent::new("proposal_expired", e).serialize(serializer)
             },
+            // =============== Deip:
             ProjectCreated(e) => {
                 TypedEvent::new("project_created", e).serialize(serializer)
             },
@@ -80,6 +82,22 @@ impl<T: DeipProposal + Deip + DeipOrg> Serialize for KnownEvents<T> {
             ReviewCreated(e) => {
                 TypedEvent::new("project_reviewCreated", e).serialize(serializer)
             },
+            ProjectTokenSaleCreated(e) => {
+                TypedEvent::new("project_tokenSaleCreated", e).serialize(serializer)
+            },
+            ProjectTokenSaleActivated(e) => {
+                TypedEvent::new("project_tokenSaleActivated", e).serialize(serializer)
+            },
+            ProjectTokenSaleFinished(e) => {
+                TypedEvent::new("project_tokenSaleFinished", e).serialize(serializer)
+            },
+            ProjectTokenSaleExpired(e) => {
+                TypedEvent::new("project_tokenSaleExpired", e).serialize(serializer)
+            },
+            ProjectTokenSaleContributed(e) => {
+                TypedEvent::new("project_tokenSaleContributed", e).serialize(serializer)
+            },
+            // =============== DeipOrg:
             OrgCreate(e) => {
                 TypedEvent::new("dao_create", e).serialize(serializer)
             },
@@ -111,6 +129,11 @@ pub enum KnownEvents<T: DeipProposal + Deip + DeipOrg> {
     NdaAccessRequestRejected(deip::NdaAccessRequestRejectedEvent<T>),
     DomainAdded(deip::DomainAddedEvent<T>),
     ReviewCreated(deip::ReviewCreatedEvent<T>),
+    ProjectTokenSaleCreated(deip::ProjectTokenSaleCreatedEvent<T>),
+    ProjectTokenSaleActivated(deip::ProjectTokenSaleActivatedEvent<T>),
+    ProjectTokenSaleFinished(deip::ProjectTokenSaleFinishedEvent<T>),
+    ProjectTokenSaleExpired(deip::ProjectTokenSaleExpiredEvent<T>),
+    ProjectTokenSaleContributed(deip::ProjectTokenSaleContributedEvent<T>),
     // DeipOrg:
     OrgCreate(deip_org::OrgCreateEvent<T>),
     OrgTransferOwnership(deip_org::OrgTransferOwnershipEvent<T>),
@@ -124,7 +147,7 @@ pub fn known_events<T>(e: &RawEvent) -> Option<KnownEvents<T>> where T: DeipProp
             deip_proposal::ProposedEvent::<T>::EVENT
         ) => { 
             decode_event_data(e).map(|x| {
-                println!("HERE: {:?}", &x);
+                // println!("HERE: {:?}", &x);
                 ProposalProposed(x) })
         },
         (
@@ -211,6 +234,36 @@ pub fn known_events<T>(e: &RawEvent) -> Option<KnownEvents<T>> where T: DeipProp
             deip::ReviewCreatedEvent::<T>::EVENT
         ) => {                          
             decode_event_data(e).map(ReviewCreated)
+        },
+        (                               
+            deip::ProjectTokenSaleCreatedEvent::<T>::MODULE,
+            deip::ProjectTokenSaleCreatedEvent::<T>::EVENT
+        ) => {                          
+            decode_event_data(e).map(ProjectTokenSaleCreated)
+        },
+        (                               
+            deip::ProjectTokenSaleActivatedEvent::<T>::MODULE,
+            deip::ProjectTokenSaleActivatedEvent::<T>::EVENT
+        ) => {                          
+            decode_event_data(e).map(ProjectTokenSaleActivated)
+        },
+        (                               
+            deip::ProjectTokenSaleFinishedEvent::<T>::MODULE,
+            deip::ProjectTokenSaleFinishedEvent::<T>::EVENT
+        ) => {                          
+            decode_event_data(e).map(ProjectTokenSaleFinished)
+        },
+        (                               
+            deip::ProjectTokenSaleExpiredEvent::<T>::MODULE,
+            deip::ProjectTokenSaleExpiredEvent::<T>::EVENT
+        ) => {                          
+            decode_event_data(e).map(ProjectTokenSaleExpired)
+        },
+        (                               
+            deip::ProjectTokenSaleContributedEvent::<T>::MODULE,
+            deip::ProjectTokenSaleContributedEvent::<T>::EVENT
+        ) => {                          
+            decode_event_data(e).map(ProjectTokenSaleContributed)
         },
         // =========== DeipOrg:
         (                               

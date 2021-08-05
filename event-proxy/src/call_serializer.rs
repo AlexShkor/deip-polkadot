@@ -1,5 +1,5 @@
 use serde::{Serialize, ser::Serializer};
-use super::{DeipProposal, runtime, RuntimeT};
+use super::{frame::DeipProposal, runtime, RuntimeT};
 use node_template_runtime::Call;
 
 impl Serialize for runtime::WrappedCall<<RuntimeT as DeipProposal>::Call> {

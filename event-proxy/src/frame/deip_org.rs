@@ -3,7 +3,7 @@ use substrate_subxt::system::System;
 use substrate_subxt::{module, Event};
 
 use sp_std::prelude::*;
-use codec::{Encode, Decode};
+use codec::{Decode};
 use frame_support::{Parameter};
 use sp_runtime::traits::Member;
 

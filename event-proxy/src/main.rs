@@ -6,27 +6,10 @@ mod call_serializer;
 
 use substrate_subxt::ClientBuilder;
 use substrate_subxt::NodeTemplateRuntime;
-use substrate_subxt::{EventSubscription, EventsDecoder, Runtime, Error, Event, RawEvent};
-
-use sp_core::hashing::twox_128;
-
-use frame::deip_proposal::{self, DeipProposal};
-use frame::deip::Deip;
-use frame::deip_org::DeipOrg;
-
-use frame_support::Parameter;
-use frame_support::pallet_prelude::Member;
-use substrate_subxt::system::System;
-
-use codec::{Decode, Encode};
-use node_template_runtime::ProposalExpirePeriod;
+use substrate_subxt::{EventSubscription};
 
 use events::*;
 use types::register_types;
-
-use serde::{Serialize, ser::{Serializer, SerializeMap}};
-
-use std::borrow::Borrow;
 
 const URL: &str = "ws://localhost:9944/";
 
