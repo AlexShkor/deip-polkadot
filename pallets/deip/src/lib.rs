@@ -430,6 +430,8 @@ decl_error! {
         TokenSaleNotFound,
         TokenSaleShouldBeInactive,
         TokenSaleShouldBeStarted,
+        TokenSaleShouldBeActive,
+        TokenSaleExpirationWrongState,
 
         // Possible errors when DAO tries to contribute to a project token sale
         ContributionProjectTokenSaleNotFound,
@@ -580,7 +582,8 @@ decl_module! {
 
         #[weight = 10_000]
         fn expire_project_token_sale(origin, sale_id: InvestmentId) -> DispatchResult {
-            unimplemented!();
+            ensure_none(origin)?;
+            Self::expire_project_token_sale_impl(sale_id)
         }
 
         #[weight = 10_000]
@@ -1003,7 +1006,19 @@ impl<T: Config> ValidateUnsigned for Module<T> {
                 ValidTransaction::with_tag_prefix("DeipOffchainWorker")
                     .propagate(false)
                     .longevity(5)
-                    .and_provides(*id)
+                    .and_provides((b"activate_project_token_sale", *id))
+                    .build()
+            },
+            Call::expire_project_token_sale(ref id) => {
+                let sale = ProjectTokenSaleMap::<T>::try_get(id).map_err(|_| InvalidTransaction::Stale)?;
+                if !matches!(sale.status, ProjectTokenSaleStatus::Active) {
+                    return InvalidTransaction::Stale.into();
+                }
+
+                ValidTransaction::with_tag_prefix("DeipOffchainWorker")
+                    .propagate(false)
+                    .longevity(5)
+                    .and_provides((b"expire_project_token_sale", *id))
                     .build()
             },
             _ => InvalidTransaction::Call.into(),

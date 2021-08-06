@@ -218,6 +218,31 @@ impl<T: Config> Module<T> {
         })
     }
 
+    pub(super) fn expire_project_token_sale_impl(sale_id: Id) -> DispatchResult {
+        ProjectTokenSaleMap::<T>::mutate_exists(sale_id, |maybe_sale| -> DispatchResult {
+            let sale = match maybe_sale.as_mut() {
+                None => return Err(Error::<T>::TokenSaleNotFound.into()),
+                Some(s) => s,
+            };
+
+            match sale.status {
+                Status::Expired => return Ok(()),
+                Status::Active => ensure!(
+                    pallet_timestamp::Module::<T>::get() >= sale.end_time,
+                    Error::<T>::TokenSaleExpirationWrongState
+                ),
+                _ => return Err(Error::<T>::TokenSaleShouldBeActive.into()),
+            };
+
+            sale.status = Status::Expired;
+            Self::update_status_index(sale, Status::Expired);
+
+            Self::refund_project_token_sale(sale);
+
+            Ok(())
+        })
+    }
+
     pub(super) fn process_project_token_sales_offchain() {
         let now = pallet_timestamp::Module::<T>::get();
         for (id, sale) in ProjectTokenSaleMap::<T>::iter() {
