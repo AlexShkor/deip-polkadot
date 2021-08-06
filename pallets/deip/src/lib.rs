@@ -429,6 +429,7 @@ decl_error! {
         TokenSaleSecurityTokenNotSpecified,
         TokenSaleNotFound,
         TokenSaleShouldBeInactive,
+        TokenSaleShouldBeStarted,
 
         // Possible errors when DAO tries to contribute to a project token sale
         ContributionProjectTokenSaleNotFound,
@@ -574,33 +575,17 @@ decl_module! {
         #[weight = 10_000]
         fn activate_project_token_sale(origin, sale_id: InvestmentId) -> DispatchResult {
             ensure_none(origin)?;
+            Self::activate_project_token_sale_impl(sale_id)
+        }
 
-            ProjectTokenSaleMap::<T>::mutate_exists(sale_id, |maybe_sale| -> DispatchResult {
-                let sale = match maybe_sale.as_mut() {
-                    None => return Err(Error::<T>::TokenSaleNotFound.into()),
-                    Some(s) => s,
-                };
+        #[weight = 10_000]
+        fn expire_project_token_sale(origin, sale_id: InvestmentId) -> DispatchResult {
+            unimplemented!();
+        }
 
-                if matches!(sale.status, ProjectTokenSaleStatus::Active) {
-                    return Ok(());
-                }
-
-                if !matches!(sale.status, ProjectTokenSaleStatus::Inactive) {
-                    return Err(Error::<T>::TokenSaleShouldBeInactive.into());
-                }
-
-                ensure!(sale.start_time >= pallet_timestamp::Module::<T>::get(),
-                        Error::<T>::TokenSaleNotFound);
-
-                sale.status = ProjectTokenSaleStatus::Active;
-
-                Self::deposit_event(RawEvent::ProjectTokenSaleActivated(
-                    sale.project_id,
-                    sale_id,
-                ));
-
-                Ok(())
-            })
+        #[weight = 10_000]
+        fn finish_project_token_sale(origin, sale_id: InvestmentId) -> DispatchResult {
+            unimplemented!();
         }
 
         /// Allows DAO to invest to an opportunity.
@@ -979,31 +964,12 @@ decl_module! {
             Self::deposit_event(RawEvent::DomainAdded(account, external_id));
         }
 
-        // TODO: temporarily disabled since more appropriate approach
-        // should be used (for example, Off-Chain Workers)
-        // fn on_finalize() {
-        //     Self::process_project_token_sales();
-        // }
-
-        fn offchain_worker(n: T::BlockNumber) {
-            RuntimeLogger::init();
-
-
-            debug!("1111111111111111111111111111111 {:?}", n);
+        fn offchain_worker(_n: T::BlockNumber) {
             if !sp_io::offchain::is_validator() {
-                debug!("{}", "not a validator");
-                return
+                return;
             }
 
-            debug!("expire proposals at {:?}", n);
-            let now = pallet_timestamp::Module::<T>::get();
-            for (id, sale) in ProjectTokenSaleMap::<T>::iter() {
-                if sale.start_time >= now && matches!(sale.status, ProjectTokenSaleStatus::Inactive) {
-                    let call = Call::activate_project_token_sale(id);
-                    let submit = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
-                    debug!("submit unsigned transaction: {}", submit.is_ok());
-                }
-            }
+            Self::process_project_token_sales_offchain();
         }
     }
 }
