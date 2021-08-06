@@ -28,7 +28,7 @@
 #[cfg(test)]
 mod tests;
 mod batch_tree;
-mod proposal;
+pub mod proposal;
 mod batch_item_kind;
 mod storage;
 pub mod entrypoint;
