@@ -37,15 +37,20 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use sp_runtime::traits::ValidateUnsigned;
 use frame_support::{
     codec::{Decode, Encode}, ensure,
     decl_module, decl_storage, decl_event, decl_error, 
     StorageMap,
     dispatch::{ DispatchResult, Parameter },
     storage::{ IterableStorageMap, IterableStorageDoubleMap },
-    traits::{Currency, ReservableCurrency}
+    traits::{Currency, ReservableCurrency},
+    debug::{debug, RuntimeLogger},
+    pallet_prelude::*,
 };
-use frame_system::{ self as system, ensure_signed };
+use frame_system::{ self as system, ensure_signed, ensure_none,
+    offchain::{SubmitTransaction, SendTransactionTypes}
+};
 use sp_std::vec::Vec;
 use sp_runtime::{ RuntimeDebug, traits::Member };
 pub use sp_core::{ H160, H256 };
@@ -70,6 +75,8 @@ pub mod traits;
 
 /// A maximum number of Domains. When domains reaches this number, no new domains can be added.
 pub const MAX_DOMAINS: u32 = 100;
+
+const NON_LOCAL: u8 = 100;
 
 /// Possible statuses of Project inherited from Project Content type
 #[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq)]
@@ -104,7 +111,7 @@ impl Default for ProjectContentType {
 }
 
 /// Configuration trait. Pallet depends on frame_system and pallet_timestamp. 
-pub trait Config: frame_system::Config + pallet_timestamp::Config {
+pub trait Config: frame_system::Config + pallet_timestamp::Config + SendTransactionTypes<Call<Self>> {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     
@@ -420,6 +427,8 @@ decl_error! {
         TokenSaleProjectNotTokenizedWithSecurityToken,
         TokenSaleAssetAmountMustBePositive,
         TokenSaleSecurityTokenNotSpecified,
+        TokenSaleNotFound,
+        TokenSaleShouldBeInactive,
 
         // Possible errors when DAO tries to contribute to a project token sale
         ContributionProjectTokenSaleNotFound,
@@ -560,6 +569,38 @@ decl_module! {
                     security_tokens_on_sale,
                 } => Self::create_project_token_sale_impl(account, external_id, project_id, start_time, end_time, soft_cap, hard_cap, security_tokens_on_sale)
             }
+        }
+
+        #[weight = 10_000]
+        fn activate_project_token_sale(origin, sale_id: InvestmentId) -> DispatchResult {
+            ensure_none(origin)?;
+
+            ProjectTokenSaleMap::<T>::mutate_exists(sale_id, |maybe_sale| -> DispatchResult {
+                let sale = match maybe_sale.as_mut() {
+                    None => return Err(Error::<T>::TokenSaleNotFound.into()),
+                    Some(s) => s,
+                };
+
+                if matches!(sale.status, ProjectTokenSaleStatus::Active) {
+                    return Ok(());
+                }
+
+                if !matches!(sale.status, ProjectTokenSaleStatus::Inactive) {
+                    return Err(Error::<T>::TokenSaleShouldBeInactive.into());
+                }
+
+                ensure!(sale.start_time >= pallet_timestamp::Module::<T>::get(),
+                        Error::<T>::TokenSaleNotFound);
+
+                sale.status = ProjectTokenSaleStatus::Active;
+
+                Self::deposit_event(RawEvent::ProjectTokenSaleActivated(
+                    sale.project_id,
+                    sale_id,
+                ));
+
+                Ok(())
+            })
         }
 
         /// Allows DAO to invest to an opportunity.
@@ -943,6 +984,64 @@ decl_module! {
         // fn on_finalize() {
         //     Self::process_project_token_sales();
         // }
+
+        fn offchain_worker(n: T::BlockNumber) {
+            RuntimeLogger::init();
+
+
+            debug!("1111111111111111111111111111111 {:?}", n);
+            if !sp_io::offchain::is_validator() {
+                debug!("{}", "not a validator");
+                return
+            }
+
+            debug!("expire proposals at {:?}", n);
+            let now = pallet_timestamp::Module::<T>::get();
+            for (id, sale) in ProjectTokenSaleMap::<T>::iter() {
+                if sale.start_time >= now && matches!(sale.status, ProjectTokenSaleStatus::Inactive) {
+                    let call = Call::activate_project_token_sale(id);
+                    let submit = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+                    debug!("submit unsigned transaction: {}", submit.is_ok());
+                }
+            }
+        }
+    }
+}
+
+impl<T: Config> ValidateUnsigned for Module<T> {
+    type Call = Call<T>;
+
+    /// Validate unsigned call to this module.
+    ///
+    /// By default unsigned transactions are disallowed, but implementing the validator
+    /// here we make sure that some particular calls (the ones produced by offchain worker)
+    /// are being whitelisted and marked as valid.
+    fn validate_unsigned(
+        source: TransactionSource,
+        call: &Self::Call,
+    )
+        -> TransactionValidity
+    {
+        // Firstly let's check that we get the local transaction.
+        if !matches!(source, TransactionSource::Local | TransactionSource::InBlock) {
+            return InvalidTransaction::Custom(NON_LOCAL).into()
+        }
+
+        match call {
+            Call::activate_project_token_sale(ref id) => {
+                let sale = ProjectTokenSaleMap::<T>::try_get(id).map_err(|_| InvalidTransaction::Stale)?;
+                if !matches!(sale.status, ProjectTokenSaleStatus::Inactive) {
+                    return InvalidTransaction::Stale.into();
+                }
+
+                ValidTransaction::with_tag_prefix("DeipOffchainWorker")
+                    .propagate(false)
+                    .longevity(5)
+                    .and_provides(*id)
+                    .build()
+            },
+            _ => InvalidTransaction::Call.into(),
+        }
     }
 }
 
