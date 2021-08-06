@@ -181,7 +181,7 @@ impl<T: Config> Module<T> {
             Err(_) => Err(()),
             Ok(sale) => {
                 Self::update_status(&sale, Status::Finished);
-                Self::finish_project_token_sale_impl(&sale);
+                Self::process_project_token_sale_contributions(&sale);
                 Ok(())
             }
         }
@@ -243,6 +243,28 @@ impl<T: Config> Module<T> {
         })
     }
 
+    pub(super) fn finish_project_token_sale_impl(sale_id: Id) -> DispatchResult {
+        ProjectTokenSaleMap::<T>::mutate_exists(sale_id, |maybe_sale| -> DispatchResult {
+            let sale = match maybe_sale.as_mut() {
+                None => return Err(Error::<T>::TokenSaleNotFound.into()),
+                Some(s) => s,
+            };
+
+            match sale.status {
+                Status::Finished => return Ok(()),
+                Status::Active => (),
+                _ => return Err(Error::<T>::TokenSaleShouldBeActive.into()),
+            };
+
+            sale.status = Status::Finished;
+            Self::update_status_index(sale, Status::Finished);
+
+            Self::process_project_token_sale_contributions(sale);
+
+            Ok(())
+        })
+    }
+
     pub(super) fn process_project_token_sales_offchain() {
         let now = pallet_timestamp::Module::<T>::get();
         for (id, sale) in ProjectTokenSaleMap::<T>::iter() {
@@ -285,7 +307,7 @@ impl<T: Config> Module<T> {
                 Self::refund_project_token_sale(&sale);
             } else if sale.total_amount >= sale.soft_cap {
                 Self::update_status(&sale, ProjectTokenSaleStatus::Finished);
-                Self::finish_project_token_sale_impl(&sale);
+                Self::process_project_token_sale_contributions(&sale);
             }
         }
 
@@ -357,7 +379,7 @@ impl<T: Config> Module<T> {
         ));
     }
 
-    fn finish_project_token_sale_impl(sale: &ProjectTokenSaleOf<T>) {
+    fn process_project_token_sale_contributions(sale: &ProjectTokenSaleOf<T>) {
         let mut imbalance = T::Currency::deposit_creating(
             &ProjectMap::<T>::get(sale.project_id).team_id,
             sale.total_amount,
