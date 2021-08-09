@@ -45,7 +45,7 @@ use frame_support::{
     dispatch::{ DispatchResult, Parameter },
     storage::{ IterableStorageMap, IterableStorageDoubleMap },
     traits::{Currency, ReservableCurrency},
-    debug::{debug, RuntimeLogger},
+    debug::debug,
     pallet_prelude::*,
 };
 use frame_system::{ self as system, ensure_signed, ensure_none,
@@ -449,8 +449,6 @@ decl_storage! {
 
         ProjectTokenSaleMap get(fn project_token_sale): map hasher(identity) InvestmentId => ProjectTokenSaleOf<T>;
         ProjectTokenSaleByProjectIdStatus get(fn token_sales): Vec<(ProjectId, ProjectTokenSaleStatus, InvestmentId)>;
-        /// Index for fast lookup a token sale by its end time
-        ProjectTokenSaleEndTimes: Vec<(T::Moment, InvestmentId)>;
 
         /// Contains contributions to project token sales from DAOs
         ProjectTokenSaleContributions: map hasher(identity) InvestmentId => Vec<(T::AccountId, ProjectTokenSaleContributionOf<T>)>;

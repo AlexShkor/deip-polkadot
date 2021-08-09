@@ -150,13 +150,6 @@ impl<T: Config> Module<T> {
         token_sales.insert(index, (project_id, Status::Inactive, external_id));
         ProjectTokenSaleByProjectIdStatus::put(token_sales);
         ProjectTokenSaleMap::<T>::insert(external_id, new_project_token_sale.clone());
-        ProjectTokenSaleEndTimes::<T>::mutate(|v| {
-            let index = match v.binary_search_by_key(&end_time, |&(e, _)| e) {
-                Ok(i) => i,
-                Err(i) => i,
-            };
-            v.insert(index, (end_time, external_id));
-        });
 
         Self::deposit_event(RawEvent::ProjectTokenSaleCreated(
             project_id,
@@ -289,41 +282,6 @@ impl<T: Config> Module<T> {
                 }
             }
         }
-    }
-
-    pub(super) fn process_project_token_sales() {
-        let now = pallet_timestamp::Module::<T>::get();
-
-        let mut token_sales_by_end_time = ProjectTokenSaleEndTimes::<T>::get();
-        let i = token_sales_by_end_time.partition_point(|&(e, _)| e <= now);
-        for (_, sale_id) in token_sales_by_end_time.drain(..i) {
-            let sale = ProjectTokenSaleMap::<T>::get(sale_id);
-            if !matches!(sale.status, ProjectTokenSaleStatus::Active) {
-                continue;
-            }
-
-            if sale.total_amount < sale.soft_cap {
-                Self::update_status(&sale, ProjectTokenSaleStatus::Expired);
-                Self::refund_project_token_sale(&sale);
-            } else if sale.total_amount >= sale.soft_cap {
-                Self::update_status(&sale, ProjectTokenSaleStatus::Finished);
-                Self::process_project_token_sale_contributions(&sale);
-            }
-        }
-
-        let token_sales_by_end_time = token_sales_by_end_time;
-        for (_, sale_id) in token_sales_by_end_time.iter() {
-            let sale = ProjectTokenSaleMap::<T>::get(sale_id);
-            if now >= sale.start_time && matches!(sale.status, Status::Inactive) {
-                Self::update_status(&sale, Status::Active);
-                Self::deposit_event(RawEvent::ProjectTokenSaleActivated(
-                    sale.project_id,
-                    *sale_id,
-                ));
-            }
-        }
-
-        ProjectTokenSaleEndTimes::<T>::put(token_sales_by_end_time);
     }
 
     fn update_status(sale: &ProjectTokenSaleOf<T>, new_status: Status) {
