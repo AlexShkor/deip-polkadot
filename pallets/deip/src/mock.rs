@@ -3,7 +3,7 @@ use frame_support::{parameter_types, traits::Get};
 use frame_system as system;
 use sp_core::H256;
 use sp_runtime::{
-	testing::Header,
+	testing::{Header, TestXt},
 	traits::{BlakeTwo256, IdentityLookup},
 };
 
@@ -13,6 +13,8 @@ pub const BOB_ACCOUNT_ID: <Test as system::Config>::AccountId = 125;
 
 pub const INIT_TIMESTAMP: u64 = 30_000;
 pub const BLOCK_TIME: u64 = 1_000;
+
+pub type Extrinsic = TestXt<Call, ()>;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -161,6 +163,14 @@ impl pallet_deip_assets::traits::DeipProjectsInfo for Test {
 
 impl pallet_deip_assets::Config for Test {
 	type ProjectsInfo = Self;
+}
+
+impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Test
+where
+	Call: From<LocalCall>,
+{
+	type OverarchingCall = Call;
+	type Extrinsic = Extrinsic;
 }
 
 // Build genesis storage according to the mock runtime.

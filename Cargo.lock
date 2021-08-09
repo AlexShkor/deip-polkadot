@@ -3818,6 +3818,7 @@ dependencies = [
  "pallet-deip-assets",
  "pallet-timestamp",
  "parity-scale-codec",
+ "parking_lot 0.11.1",
  "serde",
  "sp-core",
  "sp-io",

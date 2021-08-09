@@ -207,8 +207,8 @@ impl<T: Config> Module<T> {
                 Error::<T>::TokenSaleShouldBeStarted
             );
 
-            sale.status = Status::Active;
             Self::update_status_index(sale, Status::Active);
+            sale.status = Status::Active;
             Self::deposit_event(RawEvent::ProjectTokenSaleActivated(
                 sale.project_id,
                 sale_id,
@@ -234,8 +234,8 @@ impl<T: Config> Module<T> {
                 _ => return Err(Error::<T>::TokenSaleShouldBeActive.into()),
             };
 
-            sale.status = Status::Expired;
             Self::update_status_index(sale, Status::Expired);
+            sale.status = Status::Expired;
 
             Self::refund_project_token_sale(sale);
 
@@ -256,8 +256,8 @@ impl<T: Config> Module<T> {
                 _ => return Err(Error::<T>::TokenSaleShouldBeActive.into()),
             };
 
-            sale.status = Status::Finished;
             Self::update_status_index(sale, Status::Finished);
+            sale.status = Status::Finished;
 
             Self::process_project_token_sale_contributions(sale);
 
@@ -327,12 +327,12 @@ impl<T: Config> Module<T> {
     }
 
     fn update_status(sale: &ProjectTokenSaleOf<T>, new_status: Status) {
+        Self::update_status_index(sale, new_status);
+
         ProjectTokenSaleMap::<T>::mutate_exists(sale.external_id, |maybe_sale| -> () {
             let sale = maybe_sale.as_mut().expect("we keep collections in sync");
             sale.status = new_status;
         });
-
-        Self::update_status_index(sale, new_status);
     }
 
     fn update_status_index(sale: &ProjectTokenSaleOf<T>, new_status: Status) {
