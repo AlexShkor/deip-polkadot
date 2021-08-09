@@ -1023,9 +1023,32 @@ fn project_token_sale_hard_cap_reached() {
 	})
 }
 
+fn decode_deip_call(encoded: &[u8]) -> crate::Call<Test> {
+	let encoded = encoded.clone();
+	let extrinsic: Extrinsic = Decode::decode(&mut &*encoded).unwrap();
+
+	let call = extrinsic.call;
+	let inner = match call {
+		mock::Call::Deip(inner) => inner,
+		_ => unreachable!(),
+	};
+
+	assert_eq!(
+		<Deip as sp_runtime::traits::ValidateUnsigned>::validate_unsigned(
+			TransactionSource::Local,
+			&inner,
+		).is_ok(),
+		true
+	);
+
+	inner
+}
+
 #[test]
 fn project_token_sale_expired() {
-	new_test_ext2().execute_with(|| {
+	let mut ext = new_test_ext2();
+	let state = offchainify(&mut ext, 2);
+	ext.execute_with(|| {
 		let (ref project_id, .., ref account_id) = create_ok_project(None);
 
 		let usd_id = 0u32;
@@ -1060,14 +1083,24 @@ fn project_token_sale_expired() {
 		));
 
 		let start_block = System::block_number() + start_time_in_blocks + 1;
-		/* while System::block_number() < start_block {
+		while System::block_number() < start_block {
 			let block_number = System::block_number();
-			System::on_finalize(block_number);
-			Deip::process_project_token_sales();
+			<System as OnFinalize<<Test as system::Config>::BlockNumber>>::on_finalize(block_number);
+			Deip::offchain_worker(System::block_number());
 			System::set_block_number(block_number + 1);
-			System::on_initialize(System::block_number());
+			<System as OnInitialize<<Test as system::Config>::BlockNumber>>::on_initialize(System::block_number());
 			Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
-		} */
+		}
+
+		assert_eq!(state.read().transactions.len(), 1);
+
+		let inner = decode_deip_call(&state.read().transactions[0]);
+		match inner {
+			crate::Call::activate_project_token_sale(id) => Deip::activate_project_token_sale_impl(id).unwrap(),
+			_ => unreachable!(),
+		};
+
+		state.write().transactions.clear();
 
 		assert_ok!(Deip::contribute_to_project_token_sale_impl(
 			BOB_ACCOUNT_ID,
@@ -1090,14 +1123,20 @@ fn project_token_sale_expired() {
 		let _result = call.dispatch_bypass_filter(Origin::signed(*account_id));
 
 		let end_block = start_block + duration_in_blocks + 1;
-		/* while System::block_number() < end_block {
+		while System::block_number() < end_block {
 			let block_number = System::block_number();
-			System::on_finalize(block_number);
-			Deip::process_project_token_sales();
+			<System as OnFinalize<<Test as system::Config>::BlockNumber>>::on_finalize(block_number);
+			Deip::offchain_worker(System::block_number());
 			System::set_block_number(block_number + 1);
-			System::on_initialize(System::block_number());
+			<System as OnInitialize<<Test as system::Config>::BlockNumber>>::on_initialize(System::block_number());
 			Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
-		} */
+		}
+
+		let inner = decode_deip_call(&state.read().transactions[0]);
+		match inner {
+			crate::Call::expire_project_token_sale(id) => Deip::expire_project_token_sale_impl(id).unwrap(),
+			_ => unreachable!(),
+		};
 
 		assert_eq!(<Test as crate::Config>::Currency::free_balance(&BOB_ACCOUNT_ID), bob_balance_before);
 		assert_eq!(<Test as crate::Config>::Currency::free_balance(&ALICE_ACCOUNT_ID), alice_balance_before);
