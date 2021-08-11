@@ -318,6 +318,8 @@ decl_event! {
 
         /// Event emitted when a review has been created. [BelongsTo, Review]
         ReviewCreated(AccountId, Review),
+        /// Emitted when a DAO votes for a review
+        ReviewVoted(AccountId, DeipReviewVoteId),
 
         /// Event emitted when a token sale for project has been created.
         ProjectTokenSaleCreated(ProjectId, ProjectTokenSale),
@@ -396,6 +398,7 @@ decl_error! {
         ReviewVoteNoSuchDomain,
         ReviewVoteNoSuchReview,
         ReviewVoteUnrelatedDomain,
+        ReviewAlreadyVotedWithDomain,
 
         // ==== General =====
 
@@ -461,6 +464,7 @@ decl_storage! {
         Reviews get(fn reviews): Vec<(ReviewId, T::AccountId)>;
 
         ReviewVoteMap: map hasher(identity) DeipReviewVoteId => DeipReviewVoteOf<T>;
+        VoteByReviewIdVoterDomainId: Vec<(ReviewId, AccountIdOf<T>, DomainId, DeipReviewVoteId)>;
 
         // The set of all Domains.
         Domains get(fn domains) config(): map hasher(blake2_128_concat) DomainId => Domain;

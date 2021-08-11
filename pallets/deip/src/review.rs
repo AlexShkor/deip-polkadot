@@ -106,8 +106,28 @@ impl<T: Config> Module<T> {
             review.domains.contains(&domain_id),
             Error::<T>::ReviewVoteUnrelatedDomain
         );
+
+        let mut search_index = VoteByReviewIdVoterDomainId::<T>::get();
+        let index = match search_index.binary_search_by_key(&(&review_id, &account, &domain_id), |&(ref r, ref a, ref d, _)| (r, a, d)) {
+            Ok(_) => return Err(Error::<T>::ReviewAlreadyVotedWithDomain.into()),
+            Err(i) => i,
+        };
+
+        let vote = Vote {
+            id: external_id,
+            dao: account.clone(),
+            review_id,
+            domain_id,
+            voting_time: pallet_timestamp::Module::<T>::get(),
+        };
+
+        ReviewVoteMap::<T>::insert(external_id, vote);
+        // update index
+        search_index.insert(index, (review_id, account.clone(), domain_id, external_id));
+        VoteByReviewIdVoterDomainId::<T>::put(search_index);
         
-        todo!();
-        // check by review_id, voter (account) and domain_id
+        Self::deposit_event(RawEvent::ReviewVoted(account, external_id));
+
+        Ok(())
     }
 }
