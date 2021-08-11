@@ -5,7 +5,10 @@ pub type Id = H160;
 
 pub type VoteId = H160;
 
-struct Vote<AccountId, Moment> {
+#[derive(Encode, Decode, Clone, Default, RuntimeDebug, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+pub struct Vote<AccountId, Moment> {
     id: VoteId,
     dao: AccountId,
     review_id: ReviewId,
@@ -80,5 +83,31 @@ impl<T: Config> Module<T> {
         Self::deposit_event(RawEvent::ReviewCreated(account, review));
 
         Ok(())
+    }
+
+    pub(super) fn vote_for_review_impl(
+        account: T::AccountId,
+        external_id: VoteId,
+        review_id: ReviewId,
+        domain_id: DomainId,
+    ) -> DispatchResult {
+        ensure!(
+            !ReviewVoteMap::<T>::contains_key(external_id),
+            Error::<T>::ReviewVoteAlreadyExists
+        );
+        ensure!(
+            Domains::contains_key(domain_id),
+            Error::<T>::ReviewVoteNoSuchDomain
+        );
+
+        let review =
+            ReviewMap::<T>::try_get(review_id).map_err(|_| Error::<T>::ReviewVoteNoSuchReview)?;
+        ensure!(
+            review.domains.contains(&domain_id),
+            Error::<T>::ReviewVoteUnrelatedDomain
+        );
+        
+        todo!();
+        // check by review_id, voter (account) and domain_id
     }
 }
