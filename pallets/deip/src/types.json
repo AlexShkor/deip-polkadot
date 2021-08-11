@@ -221,5 +221,24 @@
     "is_frozen": "bool"
   },
   "DeipProjectIdOf": "H160",
-  "AssetsAssetIdOf": "u32"
+  "AssetsAssetIdOf": "u32",
+  "DeipReviewVoteId": "H160",
+  "DeipReviewVote": {
+    "id": "DeipReviewVoteId",
+    "dao": "AccountId",
+    "review_id": "ReviewId",
+    "domain_id": "DomainId",
+    "voting_time": "Moment"
+  },
+  "DeipReviewVoteOf": "DeipReviewVote",
+  "Review": {
+    "external_id": "ReviewId",
+    "author": "AccountId",
+    "content": "Hash",
+    "domains": "Vec<DomainId>",
+    "assessment_model": "u32",
+    "weight": "Vec<u8>",
+    "project_content_external_id": "ProjectContentId"
+  },
+  "ReviewOf": "Review"
 }

@@ -904,7 +904,7 @@ decl_module! {
         /// The origin for this call must be _Signed_.
         #[weight = 10_000]
         fn vote_for_review(origin,
-            external_id: review::VoteId,
+            external_id: DeipReviewVoteId,
             review_id: ReviewId,
             domain_id: DomainId,
         ) -> DispatchResult {
