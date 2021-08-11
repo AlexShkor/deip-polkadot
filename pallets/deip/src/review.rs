@@ -3,13 +3,10 @@ use super::*;
 /// Unique Review reference
 pub type Id = H160;
 
-pub type VoteId = H160;
-
 #[derive(Encode, Decode, Clone, Default, RuntimeDebug, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct Vote<AccountId, Moment> {
-    id: VoteId,
     dao: AccountId,
     review_id: ReviewId,
     domain_id: DomainId,
@@ -87,14 +84,9 @@ impl<T: Config> Module<T> {
 
     pub(super) fn vote_for_review_impl(
         account: T::AccountId,
-        external_id: VoteId,
         review_id: ReviewId,
         domain_id: DomainId,
     ) -> DispatchResult {
-        ensure!(
-            !ReviewVoteMap::<T>::contains_key(external_id),
-            Error::<T>::ReviewVoteAlreadyExists
-        );
         ensure!(
             Domains::contains_key(domain_id),
             Error::<T>::ReviewVoteNoSuchDomain
@@ -107,26 +99,20 @@ impl<T: Config> Module<T> {
             Error::<T>::ReviewVoteUnrelatedDomain
         );
 
-        let mut search_index = VoteByReviewIdVoterDomainId::<T>::get();
-        let index = match search_index.binary_search_by_key(&(&review_id, &account, &domain_id), |&(ref r, ref a, ref d, _)| (r, a, d)) {
-            Ok(_) => return Err(Error::<T>::ReviewAlreadyVotedWithDomain.into()),
-            Err(i) => i,
-        };
+        ensure!(
+            !ReviewVoteMap::<T>::contains_key((review_id, account.clone(), domain_id)),
+            Error::<T>::ReviewAlreadyVotedWithDomain
+        );
 
         let vote = Vote {
-            id: external_id,
             dao: account.clone(),
             review_id,
             domain_id,
             voting_time: pallet_timestamp::Module::<T>::get(),
         };
 
-        ReviewVoteMap::<T>::insert(external_id, vote);
-        // update index
-        search_index.insert(index, (review_id, account.clone(), domain_id, external_id));
-        VoteByReviewIdVoterDomainId::<T>::put(search_index);
-        
-        Self::deposit_event(RawEvent::ReviewVoted(account, external_id));
+        ReviewVoteMap::<T>::insert((review_id, account.clone(), domain_id), vote);
+        Self::deposit_event(RawEvent::ReviewVoted(review_id, account, domain_id));
 
         Ok(())
     }

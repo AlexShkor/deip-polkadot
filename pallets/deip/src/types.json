@@ -222,9 +222,7 @@
   },
   "DeipProjectIdOf": "H160",
   "AssetsAssetIdOf": "u32",
-  "DeipReviewVoteId": "H160",
   "DeipReviewVote": {
-    "id": "DeipReviewVoteId",
     "dao": "AccountId",
     "review_id": "ReviewId",
     "domain_id": "DomainId",

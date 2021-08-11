@@ -73,7 +73,7 @@ use project_token_sale_contribution::{Contribution as ProjectTokenSaleContributi
 
 mod review;
 pub use review::{Id as ReviewId, Review as Review};
-use review::{VoteId as DeipReviewVoteId, Vote as DeipReviewVote};
+use review::Vote as DeipReviewVote;
 
 pub mod traits;
 
@@ -319,7 +319,7 @@ decl_event! {
         /// Event emitted when a review has been created. [BelongsTo, Review]
         ReviewCreated(AccountId, Review),
         /// Emitted when a DAO votes for a review
-        ReviewVoted(AccountId, DeipReviewVoteId),
+        ReviewVoted(ReviewId, AccountId, DomainId),
 
         /// Event emitted when a token sale for project has been created.
         ProjectTokenSaleCreated(ProjectId, ProjectTokenSale),
@@ -463,8 +463,7 @@ decl_storage! {
         /// Review list, guarantees uniquest and provides Review listing
         Reviews get(fn reviews): Vec<(ReviewId, T::AccountId)>;
 
-        ReviewVoteMap: map hasher(identity) DeipReviewVoteId => DeipReviewVoteOf<T>;
-        VoteByReviewIdVoterDomainId: Vec<(ReviewId, AccountIdOf<T>, DomainId, DeipReviewVoteId)>;
+        ReviewVoteMap: map hasher(blake2_128_concat) (ReviewId, AccountIdOf<T>, DomainId) => DeipReviewVoteOf<T>;
 
         // The set of all Domains.
         Domains get(fn domains) config(): map hasher(blake2_128_concat) DomainId => Domain;
@@ -904,12 +903,11 @@ decl_module! {
         /// The origin for this call must be _Signed_.
         #[weight = 10_000]
         fn vote_for_review(origin,
-            external_id: DeipReviewVoteId,
             review_id: ReviewId,
             domain_id: DomainId,
         ) -> DispatchResult {
             let account = ensure_signed(origin)?;
-            Self::vote_for_review_impl(account, external_id, review_id, domain_id)
+            Self::vote_for_review_impl(account, review_id, domain_id)
         }
 
         /// Allow a user to create domains.
