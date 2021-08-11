@@ -27,6 +27,7 @@ use app::{
     RpcClientBuilderActor, RpcClientBuilderActorIO,
     RpcClientStatusActor, RpcClientStatusActorIO, RpcClientStatusActorInputData, RpcClientStatusActorOutput,
     MessageBrokerActor, MessageBrokerActorIO,
+    BlockchainActor, BlockchainActorIO, BlockchainActorInputData, BlockchainActorOutput, BlockchainActorInput,
 };
 
 #[tokio::main]
@@ -58,12 +59,34 @@ async fn main() {
         }
     });
     
-    let sub = client.subscribe_finalized_events().await.unwrap();
-    let events_decoder = client.events_decoder();
-    let mut sub = EventSubscription::<RuntimeT>::new(
-        sub,
-        events_decoder
-    );
+    let mut blockchain = BlockchainActor::new(client);
+    let (b_io1, mut b_io2) = BlockchainActorIO::pair();
+    tokio::spawn(async move { blockchain.actor_loop(b_io1).await });
+    b_io2.send(BlockchainActorInputData::subscribe_finalized_blocks()).await.unwrap();
+    let subscription = b_io2.recv().await.unwrap();
+    match subscription {
+        BlockchainActorOutput::SubscribeFinalizedBlocks(Ok(mut s)) => {
+            let header = s.next().await.unwrap().unwrap();
+            b_io2.send(BlockchainActorInput::Input(
+                BlockchainActorInputData::GetBlockHash(header.number))).await.unwrap();
+            let block_hash = b_io2.recv().await.unwrap();
+            match block_hash {
+                BlockchainActorOutput::GetBlockHash(maybe_hash) => {
+                    let hash = maybe_hash.expect("NO RPC ERROR").expect("EXISTENT BLOCK");
+                },
+                _ => unreachable!(),
+            }
+        },
+        _ => unreachable!(),
+    }
+    
+    
+    // let sub = client.subscribe_finalized_events().await.unwrap();
+    // let events_decoder = client.events_decoder();
+    // let mut sub = EventSubscription::<RuntimeT>::new(
+    //     sub,
+    //     events_decoder
+    // );
     
     let mut message_broker = MessageBrokerActor::new();
     let (mb_io1, mb_io2) = MessageBrokerActorIO::pair();
@@ -75,27 +98,27 @@ async fn main() {
         }
     });
     
-    loop {
-        tokio::select! {
-            Some(RpcClientStatusActorOutput::Disconnected(true)) = cs_i2.recv() => { println!("DISCONNECTED"); }
-            event = sub.next() => {
-                match event {
-                    Some(Ok(e)) => {
-                        println!("EVENT");
-                        log::debug!("{:?} ; {:?} ; {:?}", e.variant, e.module, e.data);
-                        let k = known_events::<RuntimeT>(&e);
-                        let payload = serde_json::to_string_pretty(&k).unwrap();
-                        println!("{}", &payload);
-                        mb_io2_o.send(ActorDirective::Input(payload)).await.unwrap();
-                    },
-                    Some(Err(err)) => {
-                        log::error!("{}", err);
-                    },
-                    None => {
-                        // println!("DISCONNECTED 2");
-                    },
-                }
-            }
-        };
-    }
+    // loop {
+    //     tokio::select! {
+    //         Some(RpcClientStatusActorOutput::Disconnected(true)) = cs_i2.recv() => { println!("DISCONNECTED"); }
+    //         event = sub.next() => {
+    //             match event {
+    //                 Some(Ok(e)) => {
+    //                     println!("EVENT");
+    //                     log::debug!("{:?} ; {:?} ; {:?}", e.variant, e.module, e.data);
+    //                     let k = known_events::<RuntimeT>(&e);
+    //                     let payload = serde_json::to_string_pretty(&k).unwrap();
+    //                     println!("{}", &payload);
+    //                     mb_io2_o.send(ActorDirective::Input(payload)).await.unwrap();
+    //                 },
+    //                 Some(Err(err)) => {
+    //                     log::error!("{}", err);
+    //                 },
+    //                 None => {
+    //                     // println!("DISCONNECTED 2");
+    //                 },
+    //             }
+    //         }
+    //     };
+    // }
 }
