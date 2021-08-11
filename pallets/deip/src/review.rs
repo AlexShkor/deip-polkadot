@@ -3,6 +3,16 @@ use super::*;
 /// Unique Review reference
 pub type Id = H160;
 
+pub type VoteId = H160;
+
+struct Vote<AccountId, Moment> {
+    id: VoteId,
+    dao: AccountId,
+    review_id: ReviewId,
+    domain_id: DomainId,
+    voting_time: Moment,
+}
+
 #[derive(Encode, Decode, Clone, Default, RuntimeDebug, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
