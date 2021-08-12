@@ -12,16 +12,6 @@ pub struct ActorJack<I, O> {
     output: ActorJackO<O>,
 }
 
-impl<I, O> ActorJack<I, O> {
-    pub fn pair() -> (Self, ActorJack<O, I>)
-    {
-        let (tx1, rx2) = mpsc::channel(1);
-        let (tx2, rx1) = mpsc::channel(1);
-        (Self { input: ActorJackI(rx1), output: ActorJackO(tx1) },
-         ActorJack::<O, I> { input: ActorJackI(rx2), output: ActorJackO(tx2) })
-    }
-}
-
 #[async_trait::async_trait]
 impl<I: Send> ActorI<I> for ActorJackI<I> {
     async fn recv(&mut self) -> Option<I> {
@@ -51,9 +41,20 @@ impl<I: Send, O: Send> ActorO<O> for ActorJack<I, O> {
 }
 
 #[async_trait::async_trait]
-impl<I: Send, O: Send> ActorIO<I, O, ActorJackI<I>, ActorJackO<O>> for ActorJack<I, O> {
+impl<I: Send, O: Send> ActorIO<I, O, ActorJackI<I>, ActorJackO<O>, ActorJackI<O>, ActorJackO<I>> for ActorJack<I, O> {
+    type Pair = ActorJack<O, I>;
+
+    fn pair() -> (Self, Self::Pair) {
+        let (tx1, rx2) = mpsc::channel(1);
+        let (tx2, rx1) = mpsc::channel(1);
+        (Self { input: ActorJackI(rx1), output: ActorJackO(tx1) },
+         ActorJack::<O, I> { input: ActorJackI(rx2), output: ActorJackO(tx2) })
+    }
+
     fn split(self) -> (ActorJackI<I>, ActorJackO<O>) {
         let Self { input, output } = self;
         (input, output)
     }
 }
+
+pub type ActorJackPair<A, I, O> = <A as ActorIO<I, O, ActorJackI<I>, ActorJackO<O>, ActorJackI<O>, ActorJackO<I>>>::Pair;

@@ -8,7 +8,7 @@ mod app;
 
 use std::time::Duration;
 
-use substrate_subxt::{ClientBuilder, Client};
+use substrate_subxt::{ClientBuilder, Client, System};
 use substrate_subxt::NodeTemplateRuntime;
 use substrate_subxt::{EventSubscription};
 
@@ -27,7 +27,7 @@ use app::{
     RpcClientBuilderActor, RpcClientBuilderActorIO,
     RpcClientStatusActor, RpcClientStatusActorIO, RpcClientStatusActorInputData, RpcClientStatusActorOutput,
     MessageBrokerActor, MessageBrokerActorIO,
-    BlockchainActor, BlockchainActorIO, BlockchainActorInputData, BlockchainActorOutput, BlockchainActorInput,
+    BlockchainActor, BlockchainActorIO, BlockchainActorInputData, BlockchainActorOutput, BlockchainActorInput, BlockchainActorIOPair,
 };
 
 #[tokio::main]
@@ -66,15 +66,10 @@ async fn main() {
     let subscription = b_io2.recv().await.unwrap();
     match subscription {
         BlockchainActorOutput::SubscribeFinalizedBlocks(Ok(mut s)) => {
-            let header = s.next().await.unwrap().unwrap();
-            b_io2.send(BlockchainActorInput::Input(
-                BlockchainActorInputData::GetBlockHash(header.number))).await.unwrap();
-            let block_hash = b_io2.recv().await.unwrap();
-            match block_hash {
-                BlockchainActorOutput::GetBlockHash(maybe_hash) => {
-                    let hash = maybe_hash.expect("NO RPC ERROR").expect("EXISTENT BLOCK");
-                },
-                _ => unreachable!(),
+            loop {
+                let header = s.next().await.unwrap().unwrap();
+                let block = fetch_block(header.number, &mut b_io2).await;
+                println!("BLOCK: {:?}", &block);
             }
         },
         _ => unreachable!(),
@@ -121,4 +116,28 @@ async fn main() {
     //         }
     //     };
     // }
+}
+
+use substrate_subxt::ChainBlock;
+
+async fn fetch_block(number: <RuntimeT as System>::BlockNumber, b_io2: &mut BlockchainActorIOPair) -> ChainBlock<RuntimeT> {
+    b_io2.send(BlockchainActorInput::Input(
+        BlockchainActorInputData::GetBlockHash(number))).await.unwrap();
+    let block_hash = b_io2.recv().await.unwrap();
+    match block_hash {
+        BlockchainActorOutput::GetBlockHash(maybe_hash) => {
+            let hash = maybe_hash.expect("NO RPC ERROR").expect("EXISTENT BLOCK");
+            b_io2.send(BlockchainActorInput::Input(
+                BlockchainActorInputData::GetBlock(hash))).await.unwrap();
+            let block = b_io2.recv().await.unwrap();
+            match block {
+                BlockchainActorOutput::GetBlock(maybe_block) => {
+                    let block = maybe_block.expect("NO RPC ERROR").expect("EXISTENT BLOCK");
+                    return block
+                },
+                _ => unreachable!(),
+            }
+        },
+        _ => unreachable!(),
+    }
 }

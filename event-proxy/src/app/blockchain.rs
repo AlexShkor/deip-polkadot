@@ -33,6 +33,7 @@ pub enum BlockchainActorOutput {
     GetBlock(Result<Option<ChainBlock<RuntimeT>>, substrate_subxt::Error>),
 }
 pub type BlockchainActorIO = ActorJack<BlockchainActorInput, BlockchainActorOutput>;
+pub type BlockchainActorIOPair = ActorJackPair<BlockchainActorIO, BlockchainActorInput, BlockchainActorOutput>;
 
 #[async_trait::async_trait]
 impl Actor
