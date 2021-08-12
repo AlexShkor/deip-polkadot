@@ -31,6 +31,7 @@
 //! * `fulfill_nda_content_access_request` - Granter fulfill access request to the data
 //! * `reject_nda_content_access_request` - Granter reject access request to the data
 //! * [`create_review`](./enum.Call.html#variant.create_review)
+//! * [`vote_for_review`](./enum.Call.html#variant.vote_for_review)
 //!
 //! [`Call`]: ./enum.Call.html
 //! [`Config`]: ./trait.Config.html
@@ -898,7 +899,7 @@ decl_module! {
             Self::create_review_impl(account, external_id, author, content, domains, assessment_model, weight, project_content_external_id)
         }
 
-        /// Allows a user to vote for a review.
+        /// Allows DAO to vote for a review.
         ///
         /// The origin for this call must be _Signed_.
         #[weight = 10_000]
