@@ -19,6 +19,9 @@ impl RpcClientStatusActorInputData {
     pub fn check_disconnect() -> RpcClientStatusActorInput {
         ActorDirective::Input(Self::CheckDisconnect)
     }
+    pub fn set_client(client: RpcClient) -> RpcClientStatusActorInput {
+        ActorDirective::Input(Self::SetClient(client))
+    }
 }
 pub type RpcClientStatusActorInput = ActorDirective<RpcClientStatusActorInputData>;
 pub enum RpcClientStatusActorOutput {

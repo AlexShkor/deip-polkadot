@@ -25,10 +25,17 @@ impl BlockchainActorInputData {
     pub fn subscribe_finalized_blocks() -> BlockchainActorInput {
         ActorDirective::Input(Self::SubscribeFinalizedBlocks)
     }
+    pub fn get_block_hash(number: <RuntimeT as System>::Header) -> BlockchainActorInput {
+        ActorDirective::Input(Self::GetBlockHash(number.number))
+    }
+    pub fn get_block(hash: <RuntimeT as System>::Hash) -> BlockchainActorInput {
+        ActorDirective::Input(Self::GetBlock(hash))
+    }
 }
 pub type BlockchainActorInput = ActorDirective<BlockchainActorInputData>;
+pub type FinalizedBlocksSubscription = Subscription<<RuntimeT as System>::Header>; 
 pub enum BlockchainActorOutput {
-    SubscribeFinalizedBlocks(Result<Subscription<<RuntimeT as System>::Header>, substrate_subxt::Error>),
+    SubscribeFinalizedBlocks(Result<FinalizedBlocksSubscription, substrate_subxt::Error>),
     GetBlockHash(Result<Option<<RuntimeT as System>::Hash>, substrate_subxt::Error>),
     GetBlock(Result<Option<ChainBlock<RuntimeT>>, substrate_subxt::Error>),
 }
