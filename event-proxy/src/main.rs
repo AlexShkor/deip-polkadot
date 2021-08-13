@@ -25,11 +25,13 @@ type RuntimeT = NodeTemplateRuntime;
 
 use app::{
     Actor, ActorI, ActorO, ActorIO, ActorDirective,
+    ActorJackPair, ActorJackI, ActorJackO,
     RpcClientBuilderActor, RpcClientBuilderActorIO,
     RpcClientStatusActor, RpcClientStatusActorIO, RpcClientStatusActorInputData, RpcClientStatusActorOutput,
     MessageBrokerActor, MessageBrokerActorIO, MessageBrokerActorInput, MessageBrokerActorIOPair, MessageBrokerActorOutput, MessageBrokerActorInputData,
     BlockchainActor, BlockchainActorIO, BlockchainActorInputData, BlockchainActorOutput, BlockchainActorInput, BlockchainActorIOPair, FinalizedBlocksSubscription,
 };
+use crate::app::ActorJack;
 
 #[tokio::main]
 async fn main() {
@@ -106,8 +108,11 @@ async fn main() {
     let mut released_message_broker_actor_queue = mpsc::channel(1);
     
     blockchain_actor_task_queue.push(
-        blockchain_actor_task(
-            BlockchainActorInputData::subscribe_finalized_blocks(), b_io2));
+        actor_task::<
+            BlockchainActorInput,
+            BlockchainActorOutput,
+            BlockchainActorIO
+        >(BlockchainActorInputData::subscribe_finalized_blocks(), b_io2));
     
     release_actor(mb_io2, &released_message_broker_actor_queue).await;
 
@@ -168,9 +173,11 @@ async fn main() {
                     Ok(Some(finalized_block_header)) => {
                         let blockchain_actor_io = wait_released_actor(&mut released_blockchain_actor_queue).await;
                         blockchain_actor_task_queue.push(
-                            blockchain_actor_task(
-                                BlockchainActorInputData::get_block_hash(finalized_block_header),
-                                blockchain_actor_io));
+                            actor_task::<
+                                BlockchainActorInput,
+                                BlockchainActorOutput,
+                                BlockchainActorIO
+                            >(BlockchainActorInputData::get_block_hash(finalized_block_header), blockchain_actor_io));
                     },
                     Ok(None) => {
                         // Subscription terminated
@@ -198,9 +205,11 @@ async fn main() {
                                 let hash = maybe_hash.expect("EXISTENT BLOCK");
                                 let blockchain_actor_io = wait_released_actor(&mut released_blockchain_actor_queue).await;
                                 blockchain_actor_task_queue.push(
-                                    blockchain_actor_task(
-                                        BlockchainActorInputData::get_block(hash),
-                                        blockchain_actor_io));
+                                    actor_task::<
+                                        BlockchainActorInput,
+                                        BlockchainActorOutput,
+                                        BlockchainActorIO
+                                    >(BlockchainActorInputData::get_block(hash), blockchain_actor_io));
                             },
                             Err(e) => { unimplemented!(); }
                         }
@@ -213,8 +222,12 @@ async fn main() {
                                 let payload = serde_json::to_string_pretty(&block).unwrap();
                                 let message_broker_actor_io = wait_released_actor(&mut released_message_broker_actor_queue).await;
                                 message_broker_actor_task_queue.push(
-                                    message_broker_actor_task(
-                                        MessageBrokerActorInput::Input(payload), message_broker_actor_io));
+                                    actor_task::<
+                                        MessageBrokerActorInput,
+                                        MessageBrokerActorOutput,
+                                        MessageBrokerActorIO
+                                    >(MessageBrokerActorInput::Input(payload), message_broker_actor_io)
+                                );
                             },
                             Err(e) => { unimplemented!(); }
                         }
@@ -270,15 +283,9 @@ async fn subscription_task(mut subscription: FinalizedBlocksSubscription)
     (subscription.next().await, subscription)
 }
 
-async fn blockchain_actor_task(input: BlockchainActorInput, mut io: BlockchainActorIOPair)
-    -> (Option<BlockchainActorOutput>, BlockchainActorIOPair)
-{
-    io.send(input).await.unwrap();
-    (io.recv().await, io)
-}
-
-async fn message_broker_actor_task(input: MessageBrokerActorInput, mut io: MessageBrokerActorIOPair)
-    -> (Option<MessageBrokerActorOutput>, MessageBrokerActorIOPair)
+async fn actor_task<I: Send, O: Send, IO>(input: I, mut io: IO::Pair) -> (Option<O>, IO::Pair)
+    where 
+        IO: ActorIO<I, O, ActorJackI<I>, ActorJackO<O>, ActorJackI<O>, ActorJackO<I>>
 {
     io.send(input).await.unwrap();
     (io.recv().await, io)
