@@ -109,7 +109,7 @@ async fn main() {
         blockchain_actor_task(
             BlockchainActorInputData::subscribe_finalized_blocks(), b_io2));
     
-    if released_message_broker_actor_queue.0.send(mb_io2).await.is_err() { panic!("NEVER GONE"); }
+    release_actor(mb_io2, &released_message_broker_actor_queue).await;
 
     loop {
         tokio::select! {
@@ -166,10 +166,7 @@ async fn main() {
                 // println!("!!!!!!!!!!!!!!!!, {:?}", maybe_finalized_block_header);
                 match maybe_finalized_block_header {
                     Ok(Some(finalized_block_header)) => {
-                        let blockchain_actor_io = match released_blockchain_actor_queue.1.recv().await {
-                            Some(x) => x,
-                            _ => panic!("NEVER GONE"),
-                        };
+                        let blockchain_actor_io = wait_released_actor(&mut released_blockchain_actor_queue).await;
                         blockchain_actor_task_queue.push(
                             blockchain_actor_task(
                                 BlockchainActorInputData::get_block_hash(finalized_block_header),
@@ -185,7 +182,7 @@ async fn main() {
             },
             Some(blockchain_actor_task_result) = blockchain_actor_task_queue.next() => {
                 let (output, io) = blockchain_actor_task_result;
-                if released_blockchain_actor_queue.0.send(io).await.is_err() { panic!("NEVER GONE"); }
+                release_actor(io, &released_blockchain_actor_queue).await;
                 match output {
                     Some(BlockchainActorOutput::SubscribeFinalizedBlocks(maybe_subscription)) => {
                         match maybe_subscription {
@@ -199,10 +196,7 @@ async fn main() {
                         match maybe_hash {
                             Ok(maybe_hash) => {
                                 let hash = maybe_hash.expect("EXISTENT BLOCK");
-                                let blockchain_actor_io = match released_blockchain_actor_queue.1.recv().await {
-                                    Some(x) => x,
-                                    _ => panic!("NEVER GONE"),
-                                };
+                                let blockchain_actor_io = wait_released_actor(&mut released_blockchain_actor_queue).await;
                                 blockchain_actor_task_queue.push(
                                     blockchain_actor_task(
                                         BlockchainActorInputData::get_block(hash),
@@ -217,10 +211,7 @@ async fn main() {
                                 let block = maybe_block.expect("EXISTENT BLOCK");
                                 println!("BLOCK !!!!!!!!!!!!!!!!, {:?}", &block);
                                 let payload = serde_json::to_string_pretty(&block).unwrap();
-                                let message_broker_actor_io = match released_message_broker_actor_queue.1.recv().await {
-                                    Some(x) => x,
-                                    _ => panic!("NEVER GONE"),
-                                };
+                                let message_broker_actor_io = wait_released_actor(&mut released_message_broker_actor_queue).await;
                                 message_broker_actor_task_queue.push(
                                     message_broker_actor_task(
                                         MessageBrokerActorInput::Input(payload), message_broker_actor_io));
@@ -233,7 +224,8 @@ async fn main() {
             },
             Some(message_broker_actor_task_result) = message_broker_actor_task_queue.next() => {
                 let (output, io) = message_broker_actor_task_result;
-                if released_message_broker_actor_queue.0.send(io).await.is_err() { panic!("NEVER GONE"); }
+                log::debug!("DELIVERY STATUS: {:?}", output);
+                release_actor(io, &released_message_broker_actor_queue).await;
             },
         };
     }
@@ -254,6 +246,21 @@ async fn main() {
     //     events_decoder
     // );
 }
+
+type ReleasedActorQueue<T> = (mpsc::Sender<T>, mpsc::Receiver<T>);
+
+async fn release_actor<T>(io: T, q: &ReleasedActorQueue<T>) {
+    if q.0.send(io).await.is_err() {
+        panic!("NEVER GONE");
+    }
+}
+
+async fn wait_released_actor<T>(q: &mut ReleasedActorQueue<T>) -> T {
+    match q.1.recv().await {
+        Some(x) => x,
+        _ => panic!("NEVER GONE"),
+    }
+} 
 
 type FinalizedBlocksSubscriptionItem = Result<Option<<RuntimeT as System>::Header>, jsonrpsee_ws_client::Error>;
 
