@@ -26,6 +26,7 @@ pub type MessageBrokerActorInputData = String;
 pub type MessageBrokerActorInput = ActorDirective<MessageBrokerActorInputData>;
 pub type MessageBrokerActorOutput = OwnedDeliveryResult;
 pub type MessageBrokerActorIO = ActorJack<MessageBrokerActorInput, MessageBrokerActorOutput>;
+pub type MessageBrokerActorIOPair = ActorJackPair<MessageBrokerActorIO, MessageBrokerActorInput, MessageBrokerActorOutput>;
 
 #[async_trait::async_trait]
 impl Actor

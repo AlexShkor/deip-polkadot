@@ -27,7 +27,7 @@ use app::{
     Actor, ActorI, ActorO, ActorIO, ActorDirective,
     RpcClientBuilderActor, RpcClientBuilderActorIO,
     RpcClientStatusActor, RpcClientStatusActorIO, RpcClientStatusActorInputData, RpcClientStatusActorOutput,
-    MessageBrokerActor, MessageBrokerActorIO,
+    MessageBrokerActor, MessageBrokerActorIO, MessageBrokerActorInput, MessageBrokerActorIOPair, MessageBrokerActorOutput, MessageBrokerActorInputData,
     BlockchainActor, BlockchainActorIO, BlockchainActorInputData, BlockchainActorOutput, BlockchainActorInput, BlockchainActorIOPair, FinalizedBlocksSubscription,
 };
 
@@ -91,22 +91,25 @@ async fn main() {
     });
     
     // Spawn delivery_status reader for message-broker-actor:
-    let (mut mb_i2, mut mb_o2) = mb_io2.split();
+    // let (mut mb_i2, mut mb_o2) = mb_io2.split();
     // tokio::spawn(async move {
     //     while let Some(delivery_status) = mb_i2.recv().await {
     //         log::debug!("{:?}", delivery_status);
     //     }
     // });
     
-    // let mut task_queue = FuturesOrdered::new();
     let mut subscription_task_queue = FuturesOrdered::new();
     let mut blockchain_actor_task_queue = FuturesOrdered::new();
+    let mut message_broker_actor_task_queue = FuturesOrdered::new();
     
-    let mut free_blockchain_actor_queue = mpsc::channel(1);
+    let mut released_blockchain_actor_queue = mpsc::channel(1);
+    let mut released_message_broker_actor_queue = mpsc::channel(1);
     
     blockchain_actor_task_queue.push(
         blockchain_actor_task(
             BlockchainActorInputData::subscribe_finalized_blocks(), b_io2));
+    
+    if released_message_broker_actor_queue.0.send(mb_io2).await.is_err() { panic!("NEVER GONE"); }
 
     loop {
         tokio::select! {
@@ -146,12 +149,12 @@ async fn main() {
             //         None => {},
             //     }
             // },
-            maybe_delivery = mb_i2.recv() => {
-                match maybe_delivery {
-                    Some(delivery) => {},
-                    None => {},
-                }
-            },
+            // maybe_delivery = mb_i2.recv() => {
+            //     match maybe_delivery {
+            //         Some(delivery) => {},
+            //         None => {},
+            //     }
+            // },
             // maybe_send = mb_o2.send(ActorDirective::Input(payload)) => {
             //     match maybe_send {
             //         Ok(_) => {},
@@ -163,7 +166,7 @@ async fn main() {
                 // println!("!!!!!!!!!!!!!!!!, {:?}", maybe_finalized_block_header);
                 match maybe_finalized_block_header {
                     Ok(Some(finalized_block_header)) => {
-                        let blockchain_actor_io = match free_blockchain_actor_queue.1.recv().await {
+                        let blockchain_actor_io = match released_blockchain_actor_queue.1.recv().await {
                             Some(x) => x,
                             _ => panic!("NEVER GONE"),
                         };
@@ -182,7 +185,7 @@ async fn main() {
             },
             Some(blockchain_actor_task_result) = blockchain_actor_task_queue.next() => {
                 let (output, io) = blockchain_actor_task_result;
-                if free_blockchain_actor_queue.0.send(io).await.is_err() { panic!("NEVER GONE"); }
+                if released_blockchain_actor_queue.0.send(io).await.is_err() { panic!("NEVER GONE"); }
                 match output {
                     Some(BlockchainActorOutput::SubscribeFinalizedBlocks(maybe_subscription)) => {
                         match maybe_subscription {
@@ -196,7 +199,7 @@ async fn main() {
                         match maybe_hash {
                             Ok(maybe_hash) => {
                                 let hash = maybe_hash.expect("EXISTENT BLOCK");
-                                let blockchain_actor_io = match free_blockchain_actor_queue.1.recv().await {
+                                let blockchain_actor_io = match released_blockchain_actor_queue.1.recv().await {
                                     Some(x) => x,
                                     _ => panic!("NEVER GONE"),
                                 };
@@ -212,14 +215,26 @@ async fn main() {
                         match maybe_block {
                             Ok(maybe_block) => {
                                 let block = maybe_block.expect("EXISTENT BLOCK");
-                                println!("BLOCK !!!!!!!!!!!!!!!!, {:?}", block);
+                                println!("BLOCK !!!!!!!!!!!!!!!!, {:?}", &block);
+                                let payload = serde_json::to_string_pretty(&block).unwrap();
+                                let message_broker_actor_io = match released_message_broker_actor_queue.1.recv().await {
+                                    Some(x) => x,
+                                    _ => panic!("NEVER GONE"),
+                                };
+                                message_broker_actor_task_queue.push(
+                                    message_broker_actor_task(
+                                        MessageBrokerActorInput::Input(payload), message_broker_actor_io));
                             },
                             Err(e) => { unimplemented!(); }
                         }
                     },
                     None => { unimplemented!(); },
                 }
-            }
+            },
+            Some(message_broker_actor_task_result) = message_broker_actor_task_queue.next() => {
+                let (output, io) = message_broker_actor_task_result;
+                if released_message_broker_actor_queue.0.send(io).await.is_err() { panic!("NEVER GONE"); }
+            },
         };
     }
     
@@ -250,6 +265,13 @@ async fn subscription_task(mut subscription: FinalizedBlocksSubscription)
 
 async fn blockchain_actor_task(input: BlockchainActorInput, mut io: BlockchainActorIOPair)
     -> (Option<BlockchainActorOutput>, BlockchainActorIOPair)
+{
+    io.send(input).await.unwrap();
+    (io.recv().await, io)
+}
+
+async fn message_broker_actor_task(input: MessageBrokerActorInput, mut io: MessageBrokerActorIOPair)
+    -> (Option<MessageBrokerActorOutput>, MessageBrokerActorIOPair)
 {
     io.send(input).await.unwrap();
     (io.recv().await, io)
