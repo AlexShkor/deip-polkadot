@@ -40,28 +40,19 @@ async fn main() {
     flexi_logger::Logger::try_with_env().unwrap().start().unwrap();
     
     // Init rpc-client-builder-actor:
-    let mut client_builder_actor = RpcClientBuilderActor;
-    let (cb_io, mut cb_io2)
-        = RpcClientBuilderActorIO::pair();
-    tokio::spawn(async move { client_builder_actor.actor_loop(cb_io).await });
-    
-    // Init rpc-client-status-actor:
-    // let mut rpc_client_status = RpcClientStatusActor::new(client.rpc_client().clone());
-    // let (cs_io, mut cs_io2) 
-    //     = RpcClientStatusActorIO::pair();
-    // tokio::spawn(async move {
-    //     rpc_client_status.actor_loop(cs_io).await
-    // });
+    let mut rpc_client_builder_actor = RpcClientBuilderActor;
+    let (rpc_client_builder_actor_io, rpc_client_builder_actor_io2) = RpcClientBuilderActorIO::pair();
+    tokio::spawn(async move { rpc_client_builder_actor.actor_loop(rpc_client_builder_actor_io).await });
     
     // Init blockchain-actor:
-    let mut blockchain = BlockchainActor::new();
-    let (b_io, mut b_io2) = BlockchainActorIO::pair();
-    tokio::spawn(async move { blockchain.actor_loop(b_io).await });
+    let mut blockchain_actor = BlockchainActor::new();
+    let (blockchain_actor_io, blockchain_actor_io2) = BlockchainActorIO::pair();
+    tokio::spawn(async move { blockchain_actor.actor_loop(blockchain_actor_io).await });
     
     // Init message-broker-actor:
-    let mut message_broker = MessageBrokerActor::new();
-    let (mb_io, mb_io2) = MessageBrokerActorIO::pair();
-    tokio::spawn(async move { message_broker.actor_loop(mb_io).await });
+    let mut message_broker_actor = MessageBrokerActor::new();
+    let (message_broker_actor_io, message_broker_actor_io2) = MessageBrokerActorIO::pair();
+    tokio::spawn(async move { message_broker_actor.actor_loop(message_broker_actor_io).await });
     
     let mut subscription_task_queue = FuturesOrdered::new();
     
@@ -69,19 +60,19 @@ async fn main() {
     let mut message_broker_actor_task_queue = FuturesOrdered::new();
     let mut rpc_client_builder_actor_task_queue = FuturesOrdered::new();
     
-    let mut released_blockchain_actor_queue = released_actor_queue::<BlockchainActorIOPair>();
-    let mut released_message_broker_actor_queue = released_actor_queue::<MessageBrokerActorIOPair>();
-    let mut released_rpc_client_builder_actor_queue = released_actor_queue::<RpcClientBuilderActorIOPair>();
+    let mut released_blockchain_actor_queue = released_actor_queue::<_, _, BlockchainActorIO>();
+    let mut released_message_broker_actor_queue = released_actor_queue::<_, _, MessageBrokerActorIO>();
+    let mut released_rpc_client_builder_actor_queue = released_actor_queue::<_, _, RpcClientBuilderActorIO>();
+
+    release_actor(blockchain_actor_io2, &mut released_blockchain_actor_queue).await;
+    release_actor(message_broker_actor_io2, &mut released_message_broker_actor_queue).await;
+    release_actor(rpc_client_builder_actor_io2, &mut released_rpc_client_builder_actor_queue).await;
     
-    release_actor(mb_io2, &mut released_message_broker_actor_queue).await;
-    release_actor(cb_io2, &mut released_rpc_client_builder_actor_queue).await;
-    
-    blockchain_actor_task_queue.push(
-        actor_task::<
-            BlockchainActorInput,
-            BlockchainActorOutput,
-            BlockchainActorIO
-        >(BlockchainActorInputData::subscribe_finalized_blocks(), b_io2));
+    // Put the initial task to trigger main workflow:
+    blockchain_actor_task_queue.push(init_actor_task::<_, _, BlockchainActorIO>(
+            BlockchainActorInputData::subscribe_finalized_blocks(),
+            &mut released_blockchain_actor_queue
+    ).await);
     
     loop {
         tokio::select! {
@@ -90,36 +81,35 @@ async fn main() {
                 // println!("!!!!!!!!!!!!!!!!, {:?}", maybe_finalized_block_header);
                 match maybe_finalized_block_header {
                     Ok(Some(finalized_block_header)) => {
-                        let blockchain_actor_io = wait_released_actor(&mut released_blockchain_actor_queue).await;
-                        blockchain_actor_task_queue.push(
-                            actor_task::<
-                                BlockchainActorInput,
-                                BlockchainActorOutput,
-                                BlockchainActorIO
-                            >(BlockchainActorInputData::get_block_hash(finalized_block_header), blockchain_actor_io));
+                        blockchain_actor_task_queue.push(init_actor_task::<_, _, BlockchainActorIO>(
+                            BlockchainActorInputData::get_block_hash(finalized_block_header),
+                            &mut released_blockchain_actor_queue
+                        ).await);
+                        subscription_task_queue.push(subscription_task(subscription));
                     },
-                    Ok(None) => {
-                        // Subscription terminated
-                        unimplemented!();
+                    err => {
+                        match err {
+                            Ok(Some(_)) => unreachable!(),
+                            Ok(None) => { log::error!("Subscription termination unexpected"); },
+                            Err(e) => { log::error!("{}", e); },
+                        }
+                        rpc_client_builder_actor_task_queue.push(init_actor_task::<_, _, RpcClientBuilderActorIO>(
+                            RpcClientBuilderActorInput::Input(()),
+                            &mut released_rpc_client_builder_actor_queue
+                        ).await);
                     },
-                    Err(e) => { unimplemented!(); },
                 }
-                subscription_task_queue.push(subscription_task(subscription));
             },
             Some(blockchain_actor_task_result) = blockchain_actor_task_queue.next() => {
                 let (output, io) = blockchain_actor_task_result;
                 release_actor(io, &mut released_blockchain_actor_queue).await;
                 match output {
-                    None => { unimplemented!(); },
+                    None => { unreachable!(); },
                     Some(BlockchainActorOutput::NoClient) => {
-                        let rpc_client_builder_actor_io = wait_released_actor(&mut released_rpc_client_builder_actor_queue).await;
-                        rpc_client_builder_actor_task_queue.push(
-                            actor_task::<
-                                RpcClientBuilderActorInput,
-                                RpcClientBuilderActorOutput,
-                                RpcClientBuilderActorIO
-                            >(RpcClientBuilderActorInput::Input(()), rpc_client_builder_actor_io)
-                        );
+                        rpc_client_builder_actor_task_queue.push(init_actor_task::<_, _, RpcClientBuilderActorIO>(
+                            RpcClientBuilderActorInput::Input(()),
+                            &mut released_rpc_client_builder_actor_queue
+                        ).await);
                     },
                     Some(BlockchainActorOutput::Ok(BlockchainActorOutputData::SubscribeFinalizedBlocks(maybe_subscription))) => {
                         match maybe_subscription {
@@ -133,13 +123,10 @@ async fn main() {
                         match maybe_hash {
                             Ok(maybe_hash) => {
                                 let hash = maybe_hash.expect("EXISTENT BLOCK");
-                                let blockchain_actor_io = wait_released_actor(&mut released_blockchain_actor_queue).await;
-                                blockchain_actor_task_queue.push(
-                                    actor_task::<
-                                        BlockchainActorInput,
-                                        BlockchainActorOutput,
-                                        BlockchainActorIO
-                                    >(BlockchainActorInputData::get_block(hash), blockchain_actor_io));
+                                blockchain_actor_task_queue.push(init_actor_task::<_, _, BlockchainActorIO>(
+                                    BlockchainActorInputData::get_block(hash),
+                                    &mut released_blockchain_actor_queue
+                                ).await);
                             },
                             Err(e) => { unimplemented!(); }
                         }
@@ -150,27 +137,19 @@ async fn main() {
                                 let block = maybe_block.expect("EXISTENT BLOCK");
                                 println!("BLOCK !!!!!!!!!!!!!!!!, {:?}", &block);
                                 let payload = serde_json::to_string_pretty(&block).unwrap();
-                                let message_broker_actor_io = wait_released_actor(&mut released_message_broker_actor_queue).await;
-                                message_broker_actor_task_queue.push(
-                                    actor_task::<
-                                        MessageBrokerActorInput,
-                                        MessageBrokerActorOutput,
-                                        MessageBrokerActorIO
-                                    >(MessageBrokerActorInput::Input(payload), message_broker_actor_io)
-                                );
+                                message_broker_actor_task_queue.push(init_actor_task::<_, _, MessageBrokerActorIO>(
+                                    MessageBrokerActorInput::Input(payload),
+                                    &mut released_message_broker_actor_queue
+                                ).await);
                             },
                             Err(e) => { unimplemented!(); }
                         }
                     },
                     Some(BlockchainActorOutput::Ok(BlockchainActorOutputData::SetClient)) => {
-                        let blockchain_actor_io = wait_released_actor(&mut released_blockchain_actor_queue).await;
-                        blockchain_actor_task_queue.push(
-                            actor_task::<
-                                BlockchainActorInput,
-                                BlockchainActorOutput,
-                                BlockchainActorIO
-                            >(BlockchainActorInputData::subscribe_finalized_blocks(), blockchain_actor_io)
-                        );
+                        blockchain_actor_task_queue.push(init_actor_task::<_, _, BlockchainActorIO>(
+                            BlockchainActorInputData::subscribe_finalized_blocks(),
+                            &mut released_blockchain_actor_queue
+                        ).await);
                     },
                 }
             },
@@ -184,17 +163,20 @@ async fn main() {
                 release_actor(io, &mut released_rpc_client_builder_actor_queue).await;
                 match output {
                     Some(Ok(client)) => {
-                        let blockchain_actor_io = wait_released_actor(&mut released_blockchain_actor_queue).await; 
-                        blockchain_actor_task_queue.push(
-                            actor_task::<
-                                BlockchainActorInput,
-                                BlockchainActorOutput,
-                                BlockchainActorIO
-                            >(BlockchainActorInputData::set_client(client), blockchain_actor_io)
-                        );
+                        blockchain_actor_task_queue.push(init_actor_task::<_, _, BlockchainActorIO>(
+                            BlockchainActorInputData::set_client(client),
+                            &mut released_blockchain_actor_queue
+                        ).await);
                     },
-                    Some(Err(e)) => { unimplemented!(); },
-                    None => { unimplemented!(); }
+                    Some(Err(e)) => {
+                        log::error!("{}", e);
+                        tokio::time::sleep(Duration::from_secs(5)).await;
+                        rpc_client_builder_actor_task_queue.push(init_actor_task::<_, _, RpcClientBuilderActorIO>(
+                            RpcClientBuilderActorInput::Input(()),
+                            &mut released_rpc_client_builder_actor_queue
+                        ).await);
+                    },
+                    None => { unreachable!(); }
                 }
             },
         };
@@ -219,7 +201,7 @@ async fn main() {
 
 type ReleasedActorQueue<T> = (mpsc::Sender<T>, mpsc::Receiver<T>);
 
-fn released_actor_queue<T>() -> ReleasedActorQueue<T> { mpsc::channel::<T>(1) }
+fn released_actor_queue<I, O, IO: ActorIO<I, O>>() -> ReleasedActorQueue<IO::Pair> { mpsc::channel(1) }
 
 async fn release_actor<T>(io: T, q: &mut ReleasedActorQueue<T>) {
     if q.0.send(io).await.is_err() {
@@ -242,10 +224,19 @@ async fn subscription_task(mut subscription: FinalizedBlocksSubscription)
     (subscription.next().await, subscription)
 }
 
-async fn actor_task<I: Send, O: Send, IO>(input: I, mut io: IO::Pair) -> (Option<O>, IO::Pair)
+async fn actor_task<I, O, IO>(input: I, mut io: IO::Pair) -> (Option<O>, IO::Pair)
     where 
-        IO: ActorIO<I, O, ActorJackI<I>, ActorJackO<O>, ActorJackI<O>, ActorJackO<I>>
+        I: Send, O: Send, IO: ActorIO<I, O>
 {
     if io.send(input).await.is_err() { return (None, io) }
     (io.recv().await, io)
+}
+
+async fn init_actor_task<I: Send, O: Send, IO: ActorIO<I, O>>(
+    input: I,
+    io: &mut ReleasedActorQueue<IO::Pair>
+)
+    -> impl Future<Output = (Option<O>, IO::Pair)>
+{
+    actor_task::<I, O, IO>(input, wait_released_actor(io).await)
 }

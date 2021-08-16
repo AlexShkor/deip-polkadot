@@ -41,7 +41,11 @@ impl<I: Send, O: Send> ActorO<O> for ActorJack<I, O> {
 }
 
 #[async_trait::async_trait]
-impl<I: Send, O: Send> ActorIO<I, O, ActorJackI<I>, ActorJackO<O>, ActorJackI<O>, ActorJackO<I>> for ActorJack<I, O> {
+impl<I: Send, O: Send> ActorIO<I, O> for ActorJack<I, O> 
+{
+    type Input = ActorJackI<I>;
+    type Output = ActorJackO<O>;
+
     type Pair = ActorJack<O, I>;
 
     fn pair() -> (Self, Self::Pair) {
@@ -51,10 +55,10 @@ impl<I: Send, O: Send> ActorIO<I, O, ActorJackI<I>, ActorJackO<O>, ActorJackI<O>
          ActorJack::<O, I> { input: ActorJackI(rx2), output: ActorJackO(tx2) })
     }
 
-    fn split(self) -> (ActorJackI<I>, ActorJackO<O>) {
+    fn split(self) -> (Self::Input, Self::Output) {
         let Self { input, output } = self;
         (input, output)
     }
 }
 
-pub type ActorJackPair<A, I, O> = <A as ActorIO<I, O, ActorJackI<I>, ActorJackO<O>, ActorJackI<O>, ActorJackO<I>>>::Pair;
+pub type ActorJackPair<A, I, O> = <A as ActorIO<I, O>>::Pair;

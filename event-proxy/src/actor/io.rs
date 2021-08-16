@@ -9,13 +9,14 @@ pub trait ActorO<O> {
 }
 
 #[async_trait::async_trait]
-pub trait ActorIO<I, O, RX, TX, RX2, TX2>: ActorI<I> + ActorO<O> + Sized
-    where
-        RX: ActorI<I>, TX: ActorO<O>, RX2: ActorI<O>, TX2: ActorO<I>
+pub trait ActorIO<I, O>: ActorI<I> + ActorO<O> + Sized
 {
-    type Pair: ActorIO<O, I, RX2, TX2, RX, TX>;
+    type Input: ActorI<I>;
+    type Output: ActorO<O>;
+ 
+    type Pair: ActorIO<O, I>;
     
     fn pair() -> (Self, Self::Pair);
     
-    fn split(self) -> (RX, TX);
+    fn split(self) -> (Self::Input, Self::Output);
 }
